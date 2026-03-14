@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // POST /api/admin/setup
 // One-time endpoint to bootstrap the first admin account.
 // Requires the ADMIN_PASSWORD env var as an authorization key.

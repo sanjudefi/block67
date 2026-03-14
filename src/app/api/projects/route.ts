@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // POST /api/projects — create a new project
 // GET  /api/projects — list projects for authenticated user
 import { NextRequest, NextResponse } from "next/server";

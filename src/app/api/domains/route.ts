@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // POST /api/domains — initiate custom domain verification
 // GET  /api/domains/:projectId — check verification status
 import { NextRequest, NextResponse } from "next/server";

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // GET  /api/templates — list approved templates (public)
 // POST /api/templates — submit a new template (authenticated)
 import { NextRequest, NextResponse } from "next/server";

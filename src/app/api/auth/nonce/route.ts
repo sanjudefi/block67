@@ -1,5 +1,7 @@
 // GET /api/auth/nonce?address=0x...
 // Issues a short-lived challenge nonce for MetaMask signature verification.
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { db } from "@/lib/db";

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // POST /api/deployments — record a new deployment (called after MetaMask signs)
 // GET  /api/deployments — list deployments for a project
 import { NextRequest, NextResponse } from "next/server";

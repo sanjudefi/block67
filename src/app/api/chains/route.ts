@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // GET /api/chains — list active supported chains
 import { NextResponse } from "next/server";
 
