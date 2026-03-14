@@ -1,4 +1,6 @@
 // Protected app layout — requires auth, shows sidebar
+export const dynamic = "force-dynamic";
+
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
