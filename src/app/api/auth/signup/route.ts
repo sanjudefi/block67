@@ -6,12 +6,12 @@ import { db } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password } = await req.json();
+    const body = await req.json();
+    const { name, email, password } = body;
 
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
     }
-
     if (password.length < 8) {
       return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
     }
@@ -28,7 +28,24 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(user, { status: 201 });
-  } catch {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+
+    // Surface DB setup errors clearly instead of hiding them
+    if (msg.includes("relation") || msg.includes("does not exist") || msg.includes("table")) {
+      return NextResponse.json(
+        { error: "Database tables not found. Run: npx prisma db push" },
+        { status: 503 }
+      );
+    }
+    if (msg.includes("connect") || msg.includes("ECONNREFUSED")) {
+      return NextResponse.json(
+        { error: "Cannot connect to database. Check DATABASE_URL in Vercel settings." },
+        { status: 503 }
+      );
+    }
+
+    console.error("[signup]", msg);
     return NextResponse.json({ error: "Internal server error." }, { status: 500 });
   }
 }
