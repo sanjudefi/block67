@@ -1,13 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAccount, useConnect, useWalletClient } from "wagmi";
 import { injected } from "wagmi/connectors";
 import Link from "next/link";
 
+// useSearchParams() requires a Suspense boundary in Next.js 14
 export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
+  );
+}
+
+function SignupForm() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const initialPrompt = searchParams.get("prompt") ?? "";
