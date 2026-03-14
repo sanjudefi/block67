@@ -1,7 +1,7 @@
 // Deployment engine — client-side contract deployment via MetaMask (wagmi/viem)
 
 import { createWalletClient, custom, encodeDeployData } from "viem";
-import type { Abi } from "viem";
+import type { Abi, Chain } from "viem";
 import type { ConstructorArg } from "@/types";
 
 export interface DeployParams {
@@ -23,7 +23,11 @@ export interface DeployResult {
 export async function deployContract(params: DeployParams): Promise<DeployResult> {
   if (!window.ethereum) throw new Error("No wallet found. Please install MetaMask.");
 
+  // Minimal chain descriptor — wallet already knows the active chain
+  const chain = { id: params.chainId } as Chain;
+
   const walletClient = createWalletClient({
+    chain,
     transport: custom(window.ethereum),
   });
 
@@ -38,7 +42,7 @@ export async function deployContract(params: DeployParams): Promise<DeployResult
   const txHash = await walletClient.sendTransaction({
     account,
     data: deployData,
-    chain: { id: params.chainId } as never,
+    chain,
   });
 
   return { txHash };
