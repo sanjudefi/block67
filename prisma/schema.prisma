@@ -66,7 +66,7 @@ model User {
   projects      Project[]
   templates     Template[]
 
-  @@map("users")
+  @@map("block67_users")
 }
 
 // ─── AUTH NONCES (MetaMask SIWE challenge/response) ───────────────────────────
@@ -77,7 +77,7 @@ model AuthNonce {
   nonce     String
   expiresAt DateTime
 
-  @@map("auth_nonces")
+  @@map("block67_auth_nonces")
 }
 
 // ─── CHAINS ───────────────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ model Chain {
 
   deployments    Deployment[]
 
-  @@map("chains")
+  @@map("block67_chains")
 }
 
 // ─── TEMPLATES ────────────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ model Template {
   author           User             @relation(fields: [authorId], references: [id])
   projects         Project[]
 
-  @@map("templates")
+  @@map("block67_templates")
 }
 
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
@@ -147,7 +147,7 @@ model Project {
   deployments   Deployment[]
   domainConfig  DomainConfig?
 
-  @@map("projects")
+  @@map("block67_projects")
 }
 
 // ─── DEPLOYMENTS ──────────────────────────────────────────────────────────────
@@ -169,7 +169,7 @@ model Deployment {
   project         Project          @relation(fields: [projectId], references: [id])
   chain           Chain            @relation(fields: [chainId], references: [id])
 
-  @@map("deployments")
+  @@map("block67_deployments")
 }
 
 // ─── DOMAIN CONFIG ────────────────────────────────────────────────────────────
@@ -185,5 +185,5 @@ model DomainConfig {
 
   project     Project   @relation(fields: [projectId], references: [id])
 
-  @@map("domain_configs")
+  @@map("block67_domain_configs")
 }

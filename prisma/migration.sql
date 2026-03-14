@@ -10,8 +10,8 @@ CREATE TYPE "TemplateStatus"   AS ENUM ('PENDING_REVIEW', 'APPROVED', 'REJECTED'
 CREATE TYPE "DeploymentStatus" AS ENUM ('PENDING', 'DEPLOYING', 'SUCCESS', 'FAILED');
 CREATE TYPE "NetworkType"      AS ENUM ('MAINNET', 'TESTNET');
 
--- ── users ─────────────────────────────────────────────────────────────────────
-CREATE TABLE "users" (
+-- ── block67_users ─────────────────────────────────────────────────────────────
+CREATE TABLE "block67_users" (
     "id"            TEXT        NOT NULL,
     "email"         TEXT,
     "walletAddress" TEXT,
@@ -21,23 +21,23 @@ CREATE TABLE "users" (
     "role"          "UserRole"  NOT NULL DEFAULT 'USER',
     "createdAt"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "block67_users_pkey" PRIMARY KEY ("id")
 );
-CREATE UNIQUE INDEX "users_email_key"         ON "users"("email");
-CREATE UNIQUE INDEX "users_walletAddress_key" ON "users"("walletAddress");
+CREATE UNIQUE INDEX "block67_users_email_key"         ON "block67_users"("email");
+CREATE UNIQUE INDEX "block67_users_walletAddress_key" ON "block67_users"("walletAddress");
 
--- ── auth_nonces ───────────────────────────────────────────────────────────────
-CREATE TABLE "auth_nonces" (
+-- ── block67_auth_nonces ───────────────────────────────────────────────────────
+CREATE TABLE "block67_auth_nonces" (
     "id"        TEXT         NOT NULL,
     "address"   TEXT         NOT NULL,
     "nonce"     TEXT         NOT NULL,
     "expiresAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "auth_nonces_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "block67_auth_nonces_pkey" PRIMARY KEY ("id")
 );
-CREATE UNIQUE INDEX "auth_nonces_address_key" ON "auth_nonces"("address");
+CREATE UNIQUE INDEX "block67_auth_nonces_address_key" ON "block67_auth_nonces"("address");
 
--- ── chains ────────────────────────────────────────────────────────────────────
-CREATE TABLE "chains" (
+-- ── block67_chains ────────────────────────────────────────────────────────────
+CREATE TABLE "block67_chains" (
     "id"             TEXT          NOT NULL,
     "name"           TEXT          NOT NULL,
     "slug"           TEXT          NOT NULL,
@@ -49,13 +49,13 @@ CREATE TABLE "chains" (
     "logoUrl"        TEXT,
     "isActive"       BOOLEAN       NOT NULL DEFAULT true,
     "createdAt"      TIMESTAMP(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "chains_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "block67_chains_pkey" PRIMARY KEY ("id")
 );
-CREATE UNIQUE INDEX "chains_slug_key"    ON "chains"("slug");
-CREATE UNIQUE INDEX "chains_chainId_key" ON "chains"("chainId");
+CREATE UNIQUE INDEX "block67_chains_slug_key"    ON "block67_chains"("slug");
+CREATE UNIQUE INDEX "block67_chains_chainId_key" ON "block67_chains"("chainId");
 
--- ── templates ─────────────────────────────────────────────────────────────────
-CREATE TABLE "templates" (
+-- ── block67_templates ─────────────────────────────────────────────────────────
+CREATE TABLE "block67_templates" (
     "id"               TEXT               NOT NULL,
     "name"             TEXT               NOT NULL,
     "slug"             TEXT               NOT NULL,
@@ -72,12 +72,12 @@ CREATE TABLE "templates" (
     "isFeatured"       BOOLEAN            NOT NULL DEFAULT false,
     "createdAt"        TIMESTAMP(3)       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt"        TIMESTAMP(3)       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "templates_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "block67_templates_pkey" PRIMARY KEY ("id")
 );
-CREATE UNIQUE INDEX "templates_slug_key" ON "templates"("slug");
+CREATE UNIQUE INDEX "block67_templates_slug_key" ON "block67_templates"("slug");
 
--- ── projects ──────────────────────────────────────────────────────────────────
-CREATE TABLE "projects" (
+-- ── block67_projects ──────────────────────────────────────────────────────────
+CREATE TABLE "block67_projects" (
     "id"           TEXT            NOT NULL,
     "name"         TEXT            NOT NULL,
     "slug"         TEXT            NOT NULL,
@@ -90,13 +90,13 @@ CREATE TABLE "projects" (
     "logoUrl"      TEXT,
     "createdAt"    TIMESTAMP(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt"    TIMESTAMP(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "projects_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "block67_projects_pkey" PRIMARY KEY ("id")
 );
-CREATE UNIQUE INDEX "projects_slug_key"         ON "projects"("slug");
-CREATE UNIQUE INDEX "projects_customDomain_key" ON "projects"("customDomain");
+CREATE UNIQUE INDEX "block67_projects_slug_key"         ON "block67_projects"("slug");
+CREATE UNIQUE INDEX "block67_projects_customDomain_key" ON "block67_projects"("customDomain");
 
--- ── deployments ───────────────────────────────────────────────────────────────
-CREATE TABLE "deployments" (
+-- ── block67_deployments ───────────────────────────────────────────────────────
+CREATE TABLE "block67_deployments" (
     "id"              TEXT               NOT NULL,
     "projectId"       TEXT               NOT NULL,
     "chainId"         TEXT               NOT NULL,
@@ -109,11 +109,11 @@ CREATE TABLE "deployments" (
     "errorMessage"    TEXT,
     "deployedAt"      TIMESTAMP(3),
     "createdAt"       TIMESTAMP(3)       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "deployments_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "block67_deployments_pkey" PRIMARY KEY ("id")
 );
 
--- ── domain_configs ────────────────────────────────────────────────────────────
-CREATE TABLE "domain_configs" (
+-- ── block67_domain_configs ────────────────────────────────────────────────────
+CREATE TABLE "block67_domain_configs" (
     "id"         TEXT         NOT NULL,
     "projectId"  TEXT         NOT NULL,
     "domain"     TEXT         NOT NULL,
@@ -121,26 +121,26 @@ CREATE TABLE "domain_configs" (
     "txtRecord"  TEXT         NOT NULL,
     "createdAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "verifiedAt" TIMESTAMP(3),
-    CONSTRAINT "domain_configs_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "block67_domain_configs_pkey" PRIMARY KEY ("id")
 );
-CREATE UNIQUE INDEX "domain_configs_projectId_key" ON "domain_configs"("projectId");
-CREATE UNIQUE INDEX "domain_configs_domain_key"    ON "domain_configs"("domain");
+CREATE UNIQUE INDEX "block67_domain_configs_projectId_key" ON "block67_domain_configs"("projectId");
+CREATE UNIQUE INDEX "block67_domain_configs_domain_key"    ON "block67_domain_configs"("domain");
 
 -- ── Foreign keys ──────────────────────────────────────────────────────────────
-ALTER TABLE "templates"     ADD CONSTRAINT "templates_authorId_fkey"
-    FOREIGN KEY ("authorId")    REFERENCES "users"("id")     ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "block67_templates"     ADD CONSTRAINT "block67_templates_authorId_fkey"
+    FOREIGN KEY ("authorId")    REFERENCES "block67_users"("id")      ON DELETE RESTRICT ON UPDATE CASCADE;
 
-ALTER TABLE "projects"      ADD CONSTRAINT "projects_ownerId_fkey"
-    FOREIGN KEY ("ownerId")     REFERENCES "users"("id")     ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "block67_projects"      ADD CONSTRAINT "block67_projects_ownerId_fkey"
+    FOREIGN KEY ("ownerId")     REFERENCES "block67_users"("id")      ON DELETE RESTRICT ON UPDATE CASCADE;
 
-ALTER TABLE "projects"      ADD CONSTRAINT "projects_templateId_fkey"
-    FOREIGN KEY ("templateId")  REFERENCES "templates"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "block67_projects"      ADD CONSTRAINT "block67_projects_templateId_fkey"
+    FOREIGN KEY ("templateId")  REFERENCES "block67_templates"("id")  ON DELETE RESTRICT ON UPDATE CASCADE;
 
-ALTER TABLE "deployments"   ADD CONSTRAINT "deployments_projectId_fkey"
-    FOREIGN KEY ("projectId")   REFERENCES "projects"("id")  ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "block67_deployments"   ADD CONSTRAINT "block67_deployments_projectId_fkey"
+    FOREIGN KEY ("projectId")   REFERENCES "block67_projects"("id")   ON DELETE RESTRICT ON UPDATE CASCADE;
 
-ALTER TABLE "deployments"   ADD CONSTRAINT "deployments_chainId_fkey"
-    FOREIGN KEY ("chainId")     REFERENCES "chains"("id")    ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "block67_deployments"   ADD CONSTRAINT "block67_deployments_chainId_fkey"
+    FOREIGN KEY ("chainId")     REFERENCES "block67_chains"("id")     ON DELETE RESTRICT ON UPDATE CASCADE;
 
-ALTER TABLE "domain_configs" ADD CONSTRAINT "domain_configs_projectId_fkey"
-    FOREIGN KEY ("projectId")  REFERENCES "projects"("id")   ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "block67_domain_configs" ADD CONSTRAINT "block67_domain_configs_projectId_fkey"
+    FOREIGN KEY ("projectId")  REFERENCES "block67_projects"("id")    ON DELETE RESTRICT ON UPDATE CASCADE;
