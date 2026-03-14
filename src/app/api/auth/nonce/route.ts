@@ -16,11 +16,19 @@ export async function GET(req: NextRequest) {
   const nonce = `Sign in to block67.app\n\nNonce: ${randomBytes(16).toString("hex")}`;
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-  await db.authNonce.upsert({
-    where:  { address: address.toLowerCase() },
-    create: { address: address.toLowerCase(), nonce, expiresAt },
-    update: { nonce, expiresAt },
-  });
+  try {
+    await db.authNonce.upsert({
+      where:  { address: address.toLowerCase() },
+      create: { address: address.toLowerCase(), nonce, expiresAt },
+      update: { nonce, expiresAt },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("relation") || msg.includes("does not exist")) {
+      return NextResponse.json({ error: "Database not set up. Run: npx prisma db push" }, { status: 503 });
+    }
+    return NextResponse.json({ error: "Database error: " + msg }, { status: 500 });
+  }
 
   return NextResponse.json({ nonce });
 }

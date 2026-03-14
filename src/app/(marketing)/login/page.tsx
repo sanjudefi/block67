@@ -40,7 +40,10 @@ export default function LoginPage() {
       if (result?.error) setError("Wallet sign-in failed. Please try again.");
       else router.push("/dashboard");
     } catch (err: unknown) {
-      setError(err instanceof Error && err.message.includes("rejected") ? "Signature rejected." : "Something went wrong.");
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("rejected") || msg.includes("denied")) setError("Signature rejected by wallet.");
+      else if (msg.includes("Database") || msg.includes("prisma")) setError("Database not ready. Contact support.");
+      else setError(msg || "Something went wrong.");
     }
     setLoading(false);
   };
