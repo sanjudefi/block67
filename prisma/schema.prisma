@@ -1,0 +1,177 @@
+// block67.app — Prisma Schema
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum TemplateCategory {
+  TOKEN
+  NFT
+  DAO
+  LANDING_PAGE
+  DEFI
+  OTHER
+}
+
+enum TemplateStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum DeploymentStatus {
+  PENDING
+  DEPLOYING
+  SUCCESS
+  FAILED
+}
+
+enum NetworkType {
+  MAINNET
+  TESTNET
+}
+
+// ─── USERS ────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  walletAddress String?   @unique
+  name          String?
+  avatarUrl     String?
+  role          UserRole  @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  projects      Project[]
+  templates     Template[]    // templates authored by this user
+
+  @@map("users")
+}
+
+// ─── CHAINS ───────────────────────────────────────────────────────────────────
+
+model Chain {
+  id          String      @id @default(cuid())
+  name        String      // e.g. "Ethereum", "Base", "Polygon"
+  slug        String      @unique // e.g. "ethereum", "base", "polygon"
+  chainId     Int         @unique // EIP-155 chain ID
+  rpcUrl      String
+  explorerUrl String
+  nativeCurrency String   // e.g. "ETH", "MATIC"
+  networkType NetworkType @default(MAINNET)
+  logoUrl     String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+
+  deployments Deployment[]
+
+  @@map("chains")
+}
+
+// ─── TEMPLATES ────────────────────────────────────────────────────────────────
+
+model Template {
+  id            String           @id @default(cuid())
+  name          String
+  slug          String           @unique
+  description   String
+  category      TemplateCategory
+  status        TemplateStatus   @default(PENDING_REVIEW)
+  previewUrl    String?          // screenshot / live demo
+  repoUrl       String?          // GitHub repo for Solidity source
+  contractAbi   Json?            // compiled ABI stored as JSON
+  contractBytecode String?       // compiled bytecode (hex)
+  parameters    Json             // JSON schema describing customizable params
+  frontendConfig Json?           // default dashboard widget config
+  authorId      String
+  isFeatured    Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  author        User             @relation(fields: [authorId], references: [id])
+  projects      Project[]
+
+  @@map("templates")
+}
+
+// ─── PROJECTS ─────────────────────────────────────────────────────────────────
+
+model Project {
+  id             String        @id @default(cuid())
+  name           String
+  slug           String        @unique // used for subdomain: slug.block67.app
+  description    String?
+  status         ProjectStatus @default(DRAFT)
+  ownerId        String
+  templateId     String
+  paramValues    Json          // user-filled values for template.parameters
+  customDomain   String?       @unique
+  logoUrl        String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  owner          User          @relation(fields: [ownerId], references: [id])
+  template       Template      @relation(fields: [templateId], references: [id])
+  deployments    Deployment[]
+  domainConfig   DomainConfig?
+
+  @@map("projects")
+}
+
+// ─── DEPLOYMENTS ──────────────────────────────────────────────────────────────
+
+model Deployment {
+  id              String           @id @default(cuid())
+  projectId       String
+  chainId         String
+  status          DeploymentStatus @default(PENDING)
+  contractAddress String?          // populated on SUCCESS
+  txHash          String?
+  deployerAddress String           // MetaMask wallet that signed the tx
+  constructorArgs Json?            // ABI-encoded constructor arguments used
+  gasUsed         String?          // stored as string (BigInt safe)
+  errorMessage    String?
+  deployedAt      DateTime?        // block timestamp on success
+  createdAt       DateTime         @default(now())
+
+  project         Project          @relation(fields: [projectId], references: [id])
+  chain           Chain            @relation(fields: [chainId], references: [id])
+
+  @@map("deployments")
+}
+
+// ─── DOMAIN CONFIG ────────────────────────────────────────────────────────────
+
+model DomainConfig {
+  id          String   @id @default(cuid())
+  projectId   String   @unique
+  domain      String   @unique
+  verified    Boolean  @default(false)
+  txtRecord   String   // DNS TXT verification token
+  createdAt   DateTime @default(now())
+  verifiedAt  DateTime?
+
+  project     Project  @relation(fields: [projectId], references: [id])
+
+  @@map("domain_configs")
+}

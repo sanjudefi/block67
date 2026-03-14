@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# prisma
+prisma/migrations/
+
+# hardhat
+contracts/artifacts/
+contracts/cache/
+
+# misc
+.DS_Store
+*.log
