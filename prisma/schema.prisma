@@ -6,9 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")        // pooled (Neon / Supabase connection pooler)
-  directUrl = env("DATABASE_ANY_CLIENT") // direct connection — used for migrations
+  provider = "postgresql"
+  url      = env("DATABASE_URL") // Prisma Accelerate URL (prisma+postgres://)
 }
 
 // ─── ENUMS ────────────────────────────────────────────────────────────────────

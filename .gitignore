@@ -22,3 +22,5 @@ contracts/cache/
 # misc
 .DS_Store
 *.log
+.env
+.env.local
