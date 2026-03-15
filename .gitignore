@@ -24,3 +24,4 @@ contracts/cache/
 *.log
 .env
 .env.local
+tsconfig.tsbuildinfo
