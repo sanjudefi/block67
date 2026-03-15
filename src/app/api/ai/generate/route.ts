@@ -106,6 +106,15 @@ async function handleDemoMode(req: NextRequest) {
   const p = (prompt as string).toLowerCase();
   const updates: Record<string, string> = {};
 
+  // Theme keywords (check first, before colors)
+  if (p.includes("white theme") || p.includes("light theme") || p.includes("light mode") || p.includes("bright theme")) {
+    updates.theme = "light";
+  } else if (p.includes("dark theme") || p.includes("dark mode")) {
+    updates.theme = "dark";
+  } else if ((p.includes("white") || p.includes("make it light")) && !p.includes("whitelist") && !p.includes("whitepaper")) {
+    updates.theme = "light";
+  }
+
   // Color keywords
   if (p.includes("purple") || p.includes("violet")) updates.accentColor = "#8b5cf6";
   else if (p.includes("blue") || p.includes("navy")) updates.accentColor = "#3b82f6";

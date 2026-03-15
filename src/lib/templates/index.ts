@@ -55,6 +55,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       { key: "accentColor",  label: "Brand Color",      type: "color",  required: false, defaultValue: "#6366f1" },
       { key: "mintable",     label: "Mintable",         type: "boolean",required: false, defaultValue: "false" },
       { key: "burnable",     label: "Burnable",         type: "boolean",required: false, defaultValue: "false" },
+      { key: "theme",        label: "Theme",            type: "select", required: false, defaultValue: "dark",  options: ["dark", "light"] },
     ],
     defaultConfig: {
       tokenName: "MyToken",
@@ -65,6 +66,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       accentColor: "#6366f1",
       mintable: "false",
       burnable: "false",
+      theme: "dark",
     },
     suggestedPrompts: [
       "Make the token name 'CryptoGold' with symbol CGD and 500M supply",
@@ -94,6 +96,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       { key: "royaltyPct",     label: "Royalties (%)",    type: "number", required: false, defaultValue: "5",                 placeholder: "5" },
       { key: "accentColor",    label: "Brand Color",      type: "color",  required: false, defaultValue: "#ec4899" },
       { key: "revealable",     label: "Revealable",       type: "boolean",required: false, defaultValue: "true" },
+      { key: "theme",          label: "Theme",            type: "select", required: false, defaultValue: "light", options: ["light", "dark"] },
     ],
     defaultConfig: {
       collectionName: "My NFT Collection",
@@ -104,6 +107,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       royaltyPct: "5",
       accentColor: "#ec4899",
       revealable: "true",
+      theme: "light",
     },
     suggestedPrompts: [
       "Change collection name to 'Space Apes' with max supply 5000",
@@ -132,6 +136,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       { key: "votingPeriodDays",  label: "Voting Period (days)",  type: "number", required: false, defaultValue: "7",               placeholder: "7" },
       { key: "timelockDays",      label: "Timelock (days)",       type: "number", required: false, defaultValue: "2",               placeholder: "2" },
       { key: "accentColor",       label: "Brand Color",           type: "color",  required: false, defaultValue: "#10b981" },
+      { key: "theme",             label: "Theme",                 type: "select", required: false, defaultValue: "light", options: ["light", "dark"] },
     ],
     defaultConfig: {
       daoName: "My DAO",
@@ -141,6 +146,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       votingPeriodDays: "7",
       timelockDays: "2",
       accentColor: "#10b981",
+      theme: "light",
     },
     suggestedPrompts: [
       "Rename to 'BuilderDAO' with 5% quorum and 3-day voting",
@@ -169,6 +175,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       { key: "minStake",     label: "Min Stake",           type: "number", required: false, defaultValue: "100",       placeholder: "100" },
       { key: "description",  label: "Protocol Description",type: "text",   required: false, defaultValue: "Earn passive yield on your tokens.", placeholder: "Describe your protocol" },
       { key: "accentColor",  label: "Brand Color",         type: "color",  required: false, defaultValue: "#f59e0b" },
+      { key: "theme",        label: "Theme",               type: "select", required: false, defaultValue: "dark",  options: ["dark", "light"] },
     ],
     defaultConfig: {
       tokenName: "MyToken",
@@ -178,6 +185,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       minStake: "100",
       description: "Earn passive yield on your tokens.",
       accentColor: "#f59e0b",
+      theme: "dark",
     },
     suggestedPrompts: [
       "Set APY to 20% with a 60-day lock period",
@@ -206,6 +214,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       { key: "taxPct",       label: "Tax on Transfer (%)",type: "number",required: false, defaultValue: "2",              placeholder: "2" },
       { key: "accentColor",  label: "Brand Color",      type: "color",  required: false, defaultValue: "#eab308" },
       { key: "emoji",        label: "Token Emoji",      type: "text",   required: false, defaultValue: "🚀",              placeholder: "🌙" },
+      { key: "theme",        label: "Theme",            type: "select", required: false, defaultValue: "dark",  options: ["dark", "light"] },
     ],
     defaultConfig: {
       tokenName: "DogeMoon",
@@ -215,6 +224,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
       taxPct: "2",
       accentColor: "#eab308",
       emoji: "🚀",
+      theme: "dark",
     },
     suggestedPrompts: [
       "Make it PepeCoin with 1 quadrillion supply and green color",
