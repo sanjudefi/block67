@@ -1,83 +1,103 @@
 "use client";
-// Full-screen builder — AI chat (30%) + live preview (70%)
+// Full-screen builder — Base44 style
+// Left: AI chat plan (white) | Right: live preview with tabs
 // Route: /projects/:slug
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
-  Send, Zap, Globe, Rocket, Save, ChevronDown,
-  Monitor, Tablet, Smartphone, Settings2, ArrowLeft,
-  Sparkles, RefreshCw, Copy, Check, X,
+  ArrowLeft, Zap, Globe, Rocket, Save, Check, X,
+  Monitor, Tablet, Smartphone, Settings2, ChevronDown,
+  Send, Mic, Plus, MoreHorizontal, RefreshCw,
 } from "lucide-react";
 import { TemplatePreview } from "@/lib/templates/previews";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
 import type { TemplateId } from "@/lib/templates/index";
 
-type ViewMode = "desktop" | "tablet" | "mobile";
+type ViewMode  = "desktop" | "tablet" | "mobile";
+type TabMode   = "preview" | "config" | "deploy";
 
+interface PlanSection { heading: string; items: string[] }
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
+  text: string;        // plain display text
+  plan?: PlanSection[]; // parsed plan for first assistant message
+  ts: Date;
 }
-
 interface Project {
-  id: string;
-  name: string;
-  slug: string;
-  status: string;
+  id: string; name: string; slug: string; status: string;
   paramValues: Record<string, string>;
 }
 
-const VIEW_WIDTHS: Record<ViewMode, string> = {
-  desktop: "100%",
-  tablet:  "768px",
-  mobile:  "375px",
-};
-
-const INITIAL_MESSAGES: ChatMessage[] = [
-  {
-    id: "intro",
-    role: "assistant",
-    content: "👋 I'm your AI builder. Describe what you want to change — colors, content, features — and I'll update your app live.\n\nTry: *\"Change the token name to CryptoGold\"* or *\"Make it purple themed\"*",
-    timestamp: new Date(),
-  },
+const DID_YOU_KNOW = [
+  "Deploy to Ethereum, Base, Polygon and 12 other EVM chains",
+  "Your contract ABI is saved automatically after deployment",
+  "You can publish your app at yourproject.block67.app for free",
+  "Connect a custom domain from project settings",
 ];
 
+// Parse AI plan text into structured sections
+function parsePlan(text: string): { plan: PlanSection[]; remainder: string } {
+  const sections: PlanSection[] = [];
+  const lines = text.split("\n");
+  let current: PlanSection | null = null;
+  const remainder: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    // Bold heading: **Heading:**
+    const headingMatch = trimmed.match(/^\*\*(.+?):?\*\*:?$/);
+    if (headingMatch) {
+      if (current) sections.push(current);
+      current = { heading: headingMatch[1], items: [] };
+    } else if (trimmed.startsWith("• ") || trimmed.startsWith("- ")) {
+      if (!current) current = { heading: "", items: [] };
+      current.items.push(trimmed.slice(2));
+    } else {
+      if (current) { sections.push(current); current = null; }
+      remainder.push(trimmed);
+    }
+  }
+  if (current) sections.push(current);
+  return { plan: sections, remainder: remainder.join(" ") };
+}
+
 export default function BuilderPage({ params }: { params: { slug: string } }) {
-  const router = useRouter();
+  const router      = useRouter();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
 
-  // Project state
   const [project, setProject]     = useState<Project | null>(null);
   const [loading, setLoading]     = useState(true);
   const [notFound, setNotFound]   = useState(false);
 
-  // Builder state
   const [config, setConfig]       = useState<Record<string, string>>({});
   const [templateId, setTemplateId] = useState<TemplateId>("erc20-token");
-  const [viewMode, setViewMode]   = useState<ViewMode>("desktop");
 
-  // Chat state
-  const [messages, setMessages]   = useState<ChatMessage[]>(INITIAL_MESSAGES);
+  const [messages, setMessages]   = useState<ChatMessage[]>([]);
   const [input, setInput]         = useState("");
   const [generating, setGenerating] = useState(false);
+  const [buildingRight, setBuildingRight] = useState(false); // "Building your idea..." state
 
-  // UI state
+  const [tab, setTab]             = useState<TabMode>("preview");
+  const [viewMode, setViewMode]   = useState<ViewMode>("desktop");
+
   const [saving, setSaving]       = useState(false);
   const [saved, setSaved]         = useState(false);
   const [projectName, setProjectName] = useState("");
   const [editingName, setEditingName] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [publishModal, setPublishModal] = useState(false);
   const [deployModal, setDeployModal]   = useState(false);
+  const [showConfigPanel, setShowConfigPanel] = useState(false);
+  const [didYouKnow]              = useState(() => DID_YOU_KNOW[Math.floor(Math.random() * DID_YOU_KNOW.length)]);
 
-  const chatEndRef   = useRef<HTMLDivElement>(null);
-  const inputRef     = useRef<HTMLTextAreaElement>(null);
-  const nameInputRef = useRef<HTMLInputElement>(null);
+  const chatEndRef  = useRef<HTMLDivElement>(null);
+  const inputRef    = useRef<HTMLTextAreaElement>(null);
+  const nameRef     = useRef<HTMLInputElement>(null);
 
   // Load project
   useEffect(() => {
@@ -90,21 +110,28 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
         setProjectName(found.name);
         const pv = found.paramValues as Record<string, string>;
         setConfig(pv);
-        const tKey = pv._templateKey as TemplateId;
-        if (tKey) setTemplateId(tKey);
+        if (pv._templateKey) setTemplateId(pv._templateKey as TemplateId);
         setLoading(false);
       })
       .catch(() => { setNotFound(true); setLoading(false); });
   }, [params.slug]);
 
-  // Auto-scroll chat
+  // Auto-fire prompt from URL (?prompt=...)
+  useEffect(() => {
+    if (!project || loading) return;
+    const initialPrompt = searchParams.get("prompt");
+    if (initialPrompt && messages.length === 0) {
+      sendMessage(initialPrompt, true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project, loading]);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, generating]);
 
   const template = BUILTIN_TEMPLATES.find((t) => t.id === templateId);
 
-  // Save project
   const saveProject = useCallback(async (newConfig?: Record<string, string>, newName?: string) => {
     if (!project) return;
     setSaving(true);
@@ -119,40 +146,32 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }, [project, config]);
 
-  // Send chat message → AI
-  async function sendMessage() {
-    const text = input.trim();
-    if (!text || generating) return;
+  async function sendMessage(text?: string, isInitial = false) {
+    const msg = (text ?? input).trim();
+    if (!msg || generating) return;
 
     const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: text,
-      timestamp: new Date(),
+      id: crypto.randomUUID(), role: "user", text: msg, ts: new Date(),
     };
-
     setMessages((prev) => [...prev, userMsg]);
-    setInput("");
+    if (!text) setInput("");
     setGenerating(true);
+    if (isInitial) setBuildingRight(true);
 
     try {
-      const res = await fetch("/api/ai/generate", {
+      const res  = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: text, templateId, config }),
+        body: JSON.stringify({ prompt: msg, templateId, config }),
       });
-
       const data = await res.json();
 
       if (data.config && Object.keys(data.config).length > 0) {
         const newConfig = { ...config, ...data.config };
         setConfig(newConfig);
-        // Auto-save after AI update
         if (project) {
           await fetch(`/api/projects/${project.id}`, {
             method: "PATCH",
@@ -162,34 +181,28 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
         }
       }
 
-      const assistantMsg: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: data.message ?? "Done! Preview updated.",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
+      // Build the assistant message with plan formatting for first message
+      const rawText = data.message ?? "Done! Preview updated.";
+      const { plan, remainder } = isInitial
+        ? parsePlan(`I'll build a **${template?.name ?? "blockchain app"}** for you. Here's my plan:\n\n**Smart Contract:**\n• ERC-20 / ${template?.name ?? "contract"} template selected\n• ${Object.entries(data.config ?? {}).slice(0, 2).map(([k, v]) => `${k}: ${v}`).join("\n• ") || "Parameters configured"}\n\n**Frontend:**\n• Live preview ready\n• All config values applied\n\n**Next steps:**\n• Fine-tune with more prompts\n• Deploy contract to blockchain\n• Publish to block67.app\n\n${rawText}`)
+        : { plan: [], remainder: rawText };
+
+      setMessages((prev) => [...prev, {
+        id: crypto.randomUUID(), role: "assistant",
+        text: remainder, plan, ts: new Date(),
+      }]);
     } catch {
       setMessages((prev) => [...prev, {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: "Sorry, something went wrong. Please try again.",
-        timestamp: new Date(),
+        id: crypto.randomUUID(), role: "assistant",
+        text: "Sorry, something went wrong. Please try again.", plan: [], ts: new Date(),
       }]);
     } finally {
       setGenerating(false);
+      setBuildingRight(false);
       inputRef.current?.focus();
     }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  }
-
-  // Publish project
   async function publishProject() {
     if (!project) return;
     await fetch(`/api/projects/${project.id}`, {
@@ -201,12 +214,14 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
     setPublishModal(false);
   }
 
+  const VIEW_W: Record<ViewMode, string> = { desktop: "100%", tablet: "768px", mobile: "390px" };
+
   if (loading) {
     return (
-      <div className="h-screen bg-gray-950 flex items-center justify-center">
-        <div className="flex items-center gap-3 text-gray-500">
-          <span className="w-5 h-5 border-2 border-gray-700 border-t-indigo-500 rounded-full animate-spin" />
-          Loading builder…
+      <div className="h-screen bg-white flex items-center justify-center">
+        <div className="flex items-center gap-2 text-gray-400 text-sm">
+          <span className="w-4 h-4 border-2 border-gray-300 border-t-indigo-500 rounded-full animate-spin" />
+          Loading…
         </div>
       </div>
     );
@@ -214,194 +229,236 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
 
   if (notFound) {
     return (
-      <div className="h-screen bg-gray-950 flex flex-col items-center justify-center gap-4">
-        <p className="text-white text-xl font-bold">Project not found</p>
-        <button onClick={() => router.push("/dashboard")} className="text-indigo-400 hover:text-indigo-300 text-sm">
-          ← Back to Dashboard
+      <div className="h-screen bg-white flex flex-col items-center justify-center gap-3">
+        <p className="text-gray-800 font-semibold">Project not found</p>
+        <button onClick={() => router.push("/dashboard")} className="text-indigo-600 text-sm hover:underline">
+          ← Back to dashboard
         </button>
       </div>
     );
   }
 
   return (
-    <div className="h-screen bg-gray-950 flex flex-col overflow-hidden">
+    <div className="h-screen bg-white flex flex-col overflow-hidden">
 
-      {/* ── Top Bar ───────────────────────────────────────────────────────── */}
-      <header className="h-12 bg-gray-900 border-b border-gray-800 flex items-center px-4 gap-3 flex-shrink-0 z-30">
-        {/* Logo + back */}
+      {/* ── Top Bar (Base44 style) ─────────────────────────────────────── */}
+      <header className="h-11 border-b border-gray-200 flex items-center px-3 gap-2 flex-shrink-0 bg-white z-30">
+        {/* Back + logo */}
         <button
           onClick={() => router.push("/dashboard")}
-          className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors group"
+          className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
         >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-          <div className="flex items-center gap-1.5">
-            <div className="w-5 h-5 rounded bg-indigo-600 flex items-center justify-center">
-              <Zap className="w-3 h-3 text-white" />
-            </div>
-            <span className="text-xs font-bold text-white hidden sm:block">
-              block<span className="text-indigo-400">67</span>
-            </span>
-          </div>
+          <ArrowLeft className="w-4 h-4" />
         </button>
 
-        <div className="h-4 w-px bg-gray-800" />
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-md bg-indigo-600 flex items-center justify-center">
+            <Zap className="w-3 h-3 text-white" />
+          </div>
+          {/* Editable project name */}
+          {editingName ? (
+            <input
+              ref={nameRef}
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              onBlur={async () => {
+                setEditingName(false);
+                if (projectName.trim() && projectName !== project?.name) {
+                  await saveProject(undefined, projectName.trim());
+                  setProject((p) => p ? { ...p, name: projectName.trim() } : p);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") nameRef.current?.blur();
+                if (e.key === "Escape") { setProjectName(project?.name ?? ""); setEditingName(false); }
+              }}
+              className="text-sm font-semibold text-gray-900 bg-gray-100 border border-indigo-400 rounded-md px-2 py-0.5 outline-none max-w-[180px]"
+              autoFocus
+            />
+          ) : (
+            <button
+              onClick={() => setEditingName(true)}
+              className="text-sm font-semibold text-gray-900 hover:text-gray-600 max-w-[180px] truncate"
+            >
+              {projectName}
+            </button>
+          )}
+          <span className="text-gray-300 text-sm hidden sm:inline">·</span>
+          <span className="text-xs text-gray-400 hidden sm:inline">Personal Workspace</span>
+        </div>
 
-        {/* Project name */}
-        {editingName ? (
-          <input
-            ref={nameInputRef}
-            value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
-            onBlur={async () => {
-              setEditingName(false);
-              if (projectName.trim() && projectName !== project?.name) {
-                await saveProject(undefined, projectName.trim());
-                setProject((p) => p ? { ...p, name: projectName.trim() } : p);
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") nameInputRef.current?.blur();
-              if (e.key === "Escape") { setProjectName(project?.name ?? ""); setEditingName(false); }
-            }}
-            className="bg-gray-800 border border-indigo-600 text-white text-sm font-semibold px-2 py-0.5 rounded-lg outline-none max-w-[200px]"
-            autoFocus
-          />
-        ) : (
-          <button
-            onClick={() => setEditingName(true)}
-            className="text-sm font-semibold text-white hover:text-gray-300 transition-colors flex items-center gap-1 max-w-[200px] truncate"
-            title="Click to rename"
-          >
-            {projectName}
-          </button>
-        )}
+        <div className="h-4 w-px bg-gray-200 mx-1" />
 
-        {/* Status badge */}
-        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-          project?.status === "ACTIVE"
-            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-            : "bg-gray-800 text-gray-500 border border-gray-700"
-        }`}>
-          {project?.status === "ACTIVE" ? "● Live" : "Draft"}
-        </span>
+        {/* Center tabs */}
+        <div className="flex items-center gap-0.5">
+          {(["preview", "config", "deploy"] as TabMode[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`text-sm px-3 py-1 rounded-lg capitalize transition-colors ${
+                tab === t ? "bg-gray-100 text-gray-900 font-medium" : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+              }`}
+            >
+              {t === "preview" ? "Preview" : t === "config" ? "Config" : "Deploy"}
+            </button>
+          ))}
+        </div>
 
         <div className="flex-1" />
 
-        {/* View mode toggles */}
-        <div className="hidden sm:flex items-center gap-1 bg-gray-800 rounded-lg p-0.5">
-          {(["desktop", "tablet", "mobile"] as ViewMode[]).map((mode) => {
-            const icons = { desktop: Monitor, tablet: Tablet, mobile: Smartphone };
-            const Icon = icons[mode];
-            return (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className={`p-1.5 rounded-md transition-colors ${
-                  viewMode === mode ? "bg-gray-700 text-white" : "text-gray-500 hover:text-gray-300"
-                }`}
-                title={mode}
-              >
-                <Icon className="w-3.5 h-3.5" />
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="h-4 w-px bg-gray-800" />
+        {/* View mode (only for preview tab) */}
+        {tab === "preview" && (
+          <div className="hidden sm:flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5 mr-1">
+            {(["desktop", "tablet", "mobile"] as ViewMode[]).map((m) => {
+              const icons = { desktop: Monitor, tablet: Tablet, mobile: Smartphone };
+              const Icon = icons[m];
+              return (
+                <button
+                  key={m}
+                  onClick={() => setViewMode(m)}
+                  className={`p-1.5 rounded-md transition-colors ${viewMode === m ? "bg-white shadow-sm text-gray-900" : "text-gray-400 hover:text-gray-700"}`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Save */}
         <button
           onClick={() => saveProject()}
-          disabled={saving}
-          className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors px-2 py-1.5 rounded-lg hover:bg-gray-800"
+          className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 px-2 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
         >
-          {saved ? (
-            <><Check className="w-3.5 h-3.5 text-emerald-400" /><span className="text-emerald-400">Saved</span></>
-          ) : saving ? (
-            <><span className="w-3 h-3 border border-gray-600 border-t-gray-400 rounded-full animate-spin" />Saving…</>
-          ) : (
-            <><Save className="w-3.5 h-3.5" />Save</>
-          )}
-        </button>
-
-        {/* Deploy */}
-        <button
-          onClick={() => setDeployModal(true)}
-          className="flex items-center gap-1.5 text-xs font-medium bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 px-3 py-1.5 rounded-lg transition-colors"
-        >
-          <Rocket className="w-3.5 h-3.5" />
-          Deploy
+          {saved ? <><Check className="w-3.5 h-3.5 text-emerald-500" /><span className="text-emerald-600">Saved</span></>
+          : saving ? <><span className="w-3 h-3 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />Saving…</>
+          : <><Save className="w-3.5 h-3.5" />Save</>}
         </button>
 
         {/* Publish */}
         <button
           onClick={() => setPublishModal(true)}
-          className="flex items-center gap-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+          className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+            project?.status === "ACTIVE"
+              ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+              : "bg-gray-900 hover:bg-indigo-600 text-white"
+          }`}
         >
-          <Globe className="w-3.5 h-3.5" />
-          Publish
+          {project?.status === "ACTIVE" ? (
+            <><Globe className="w-3.5 h-3.5" />Published</>
+          ) : (
+            <>Publish</>
+          )}
         </button>
       </header>
 
-      {/* ── Main Split Layout ──────────────────────────────────────────────── */}
+      {/* ── Body ──────────────────────────────────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden">
 
-        {/* ── Left Panel: AI Chat (30%) ──────────────────────────────────── */}
-        <div className="w-[320px] xl:w-[360px] flex-shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
+        {/* ── Left panel: AI chat ───────────────────────────────────────── */}
+        <div className="w-[360px] xl:w-[400px] flex-shrink-0 border-r border-gray-200 bg-white flex flex-col">
 
-          {/* Panel header */}
-          <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-400" />
-              <span className="text-sm font-semibold text-white">AI Builder</span>
-            </div>
-            {template && (
-              <span className={`text-xs px-2 py-0.5 rounded-full bg-gradient-to-r ${template.gradient} text-white font-medium`}>
-                {template.icon} {template.name}
-              </span>
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-5">
+
+            {/* Empty state — waiting for first message */}
+            {messages.length === 0 && !generating && (
+              <div className="pt-8">
+                <div className="flex items-center gap-2 mb-6">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
+                    <Zap className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="font-semibold text-gray-900 text-sm">block67 AI</span>
+                </div>
+                <p className="text-gray-700 text-sm leading-relaxed mb-4">
+                  I&apos;m ready to build your {template?.name ?? "blockchain app"}. What would you like to create?
+                </p>
+                <p className="text-gray-400 text-xs italic mb-4">Try one of these:</p>
+                <div className="space-y-2">
+                  {(template?.suggestedPrompts ?? []).slice(0, 3).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => sendMessage(p)}
+                      className="w-full text-left text-xs text-gray-600 hover:text-indigo-700 bg-gray-50 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-200 rounded-xl px-3 py-2.5 transition-all"
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
-          </div>
 
-          {/* Chat messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-            {messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                {msg.role === "assistant" && (
-                  <div className="w-6 h-6 rounded-full bg-indigo-600/30 border border-indigo-600/50 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">
-                    <Sparkles className="w-3 h-3 text-indigo-400" />
+            {/* Chat messages */}
+            {messages.map((msg, idx) => (
+              <div key={msg.id}>
+                {msg.role === "assistant" ? (
+                  <div>
+                    {/* AI header (only on first assistant message) */}
+                    {idx === 0 || messages[idx - 1]?.role === "user" ? (
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center">
+                          <Zap className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <span className="text-xs font-semibold text-gray-900">block67 AI</span>
+                      </div>
+                    ) : null}
+
+                    {/* Plan sections */}
+                    {msg.plan && msg.plan.length > 0 && (
+                      <div className="text-sm text-gray-700 space-y-3 mb-3">
+                        {msg.plan.map((section, i) => (
+                          <div key={i}>
+                            {section.heading && (
+                              <p className="font-semibold text-gray-900 mb-1">{section.heading}:</p>
+                            )}
+                            {section.items.map((item, j) => (
+                              <div key={j} className="flex items-start gap-2 mb-0.5">
+                                <span className="text-gray-300 mt-0.5">•</span>
+                                <span className="text-gray-600 text-[13px] leading-relaxed">{item}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Remainder text */}
+                    {msg.text && (
+                      <p className="text-[13px] text-gray-600 leading-relaxed">{msg.text}</p>
+                    )}
+
+                    <p className="text-[11px] text-gray-300 mt-2">
+                      {msg.ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                ) : (
+                  /* User message */
+                  <div className="flex justify-end">
+                    <div className="max-w-[85%] bg-gray-100 rounded-2xl rounded-tr-sm px-3.5 py-2.5">
+                      <p className="text-[13px] text-gray-800">{msg.text}</p>
+                    </div>
                   </div>
                 )}
-                <div className={`max-w-[85%] text-sm leading-relaxed rounded-2xl px-3.5 py-2.5 ${
-                  msg.role === "user"
-                    ? "bg-indigo-600 text-white rounded-tr-sm"
-                    : "bg-gray-800 text-gray-200 rounded-tl-sm"
-                }`}>
-                  {msg.content.split("\n").map((line, i) => {
-                    // Render *italic* markdown
-                    const parts = line.split(/\*([^*]+)\*/);
-                    return (
-                      <span key={i}>
-                        {i > 0 && <br />}
-                        {parts.map((part, j) =>
-                          j % 2 === 1 ? <em key={j} className="italic text-indigo-300">{part}</em> : part
-                        )}
-                      </span>
-                    );
-                  })}
-                </div>
               </div>
             ))}
 
             {/* Generating indicator */}
             {generating && (
-              <div className="flex items-start gap-2">
-                <div className="w-6 h-6 rounded-full bg-indigo-600/30 border border-indigo-600/50 flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="w-3 h-3 text-indigo-400 animate-pulse" />
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center">
+                    <Zap className="w-3.5 h-3.5 text-white animate-pulse" />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-900">block67 AI</span>
                 </div>
-                <div className="bg-gray-800 rounded-2xl rounded-tl-sm px-3.5 py-3 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                <div className="flex items-center gap-1.5">
+                  {[0, 150, 300].map((d) => (
+                    <span
+                      key={d}
+                      className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce"
+                      style={{ animationDelay: `${d}ms` }}
+                    />
+                  ))}
                 </div>
               </div>
             )}
@@ -409,72 +466,80 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
             <div ref={chatEndRef} />
           </div>
 
-          {/* Suggestion chips */}
-          {messages.length <= 2 && template && (
-            <div className="px-4 py-2 border-t border-gray-800">
-              <p className="text-xs text-gray-600 mb-2">Try these:</p>
-              <div className="flex flex-wrap gap-1.5">
-                {template.suggestedPrompts.slice(0, 3).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => { setInput(p); inputRef.current?.focus(); }}
-                    className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white px-2.5 py-1 rounded-full transition-colors border border-gray-700 text-left"
-                  >
-                    {p.length > 45 ? p.slice(0, 45) + "…" : p}
-                  </button>
-                ))}
+          {/* ── Bottom input bar (Base44 style) ───────────────────────── */}
+          <div className="border-t border-gray-200 p-3">
+            <div className="flex items-end gap-2 bg-gray-50 rounded-2xl border border-gray-200 focus-within:border-gray-400 focus-within:bg-white transition-colors px-3 py-2">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                rows={1}
+                placeholder="What would you like to change?"
+                disabled={generating}
+                className="flex-1 bg-transparent text-[13px] text-gray-800 outline-none resize-none placeholder-gray-400 disabled:opacity-50 max-h-24"
+                style={{ lineHeight: "1.5" }}
+              />
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                  <Mic className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => sendMessage()}
+                  disabled={!input.trim() || generating}
+                  className="w-7 h-7 flex items-center justify-center bg-gray-900 hover:bg-indigo-600 disabled:bg-gray-200 text-white rounded-lg transition-colors"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
-          )}
-
-          {/* Config panel toggle */}
-          <div className="px-4 pb-2 pt-1">
-            <button
-              onClick={() => setShowSettings(!showSettings)}
-              className="flex items-center justify-between w-full text-xs text-gray-500 hover:text-gray-300 py-1.5 transition-colors"
-            >
-              <span className="flex items-center gap-1.5">
+            {/* Bottom icons */}
+            <div className="flex items-center gap-2 mt-2 px-1">
+              <button
+                onClick={() => setShowConfigPanel(!showConfigPanel)}
+                className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-700 transition-colors"
+              >
                 <Settings2 className="w-3 h-3" />
-                Config fields
-              </span>
-              <ChevronDown className={`w-3 h-3 transition-transform ${showSettings ? "rotate-180" : ""}`} />
-            </button>
+                Config
+                <ChevronDown className={`w-3 h-3 transition-transform ${showConfigPanel ? "rotate-180" : ""}`} />
+              </button>
+              <span className="text-gray-200">·</span>
+              <button
+                onClick={() => { setConfig(template?.defaultConfig ?? {}); }}
+                className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-700 transition-colors"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Reset
+              </button>
+            </div>
 
-            {showSettings && template && (
-              <div className="space-y-2 pb-2 max-h-48 overflow-y-auto">
+            {/* Config panel */}
+            {showConfigPanel && template && (
+              <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border-t border-gray-100 pt-2">
                 {template.params.map((param) => (
-                  <div key={param.key}>
-                    <label className="block text-[10px] text-gray-600 mb-0.5 uppercase tracking-wide">{param.label}</label>
-                    {param.type === "boolean" ? (
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={config[param.key] === "true"}
-                          onChange={(e) => {
-                            const newConfig = { ...config, [param.key]: e.target.checked ? "true" : "false" };
-                            setConfig(newConfig);
-                          }}
-                          className="rounded"
-                        />
-                        <span className="text-xs text-gray-400">{config[param.key] === "true" ? "Enabled" : "Disabled"}</span>
-                      </label>
-                    ) : param.type === "color" ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={config[param.key] || "#6366f1"}
-                          onChange={(e) => setConfig({ ...config, [param.key]: e.target.value })}
-                          className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                        />
-                        <span className="text-xs text-gray-500 font-mono">{config[param.key]}</span>
-                      </div>
+                  <div key={param.key} className="flex items-center gap-2">
+                    <label className="text-[10px] text-gray-500 w-20 flex-shrink-0 truncate">{param.label}</label>
+                    {param.type === "color" ? (
+                      <input
+                        type="color"
+                        value={config[param.key] || "#6366f1"}
+                        onChange={(e) => setConfig({ ...config, [param.key]: e.target.value })}
+                        className="w-7 h-7 rounded cursor-pointer border-0 bg-transparent"
+                      />
+                    ) : param.type === "boolean" ? (
+                      <input
+                        type="checkbox"
+                        checked={config[param.key] === "true"}
+                        onChange={(e) => setConfig({ ...config, [param.key]: e.target.checked ? "true" : "false" })}
+                        className="rounded"
+                      />
                     ) : (
                       <input
                         type="text"
                         value={config[param.key] ?? ""}
                         onChange={(e) => setConfig({ ...config, [param.key]: e.target.value })}
                         placeholder={param.placeholder}
-                        className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-600 placeholder-gray-600"
+                        className="flex-1 text-[12px] bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-indigo-400 placeholder-gray-300"
                       />
                     )}
                   </div>
@@ -482,132 +547,172 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
               </div>
             )}
           </div>
-
-          {/* Input area */}
-          <div className="p-3 border-t border-gray-800">
-            <div className="flex gap-2">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                rows={2}
-                placeholder="Describe what to change…"
-                disabled={generating}
-                className="flex-1 bg-gray-800 border border-gray-700 focus:border-indigo-600 text-white text-sm rounded-xl px-3 py-2.5 outline-none resize-none placeholder-gray-600 disabled:opacity-50 transition-colors"
-              />
-              <button
-                onClick={sendMessage}
-                disabled={!input.trim() || generating}
-                className="w-9 h-9 self-end rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:text-gray-600 text-white flex items-center justify-center transition-colors flex-shrink-0"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
-            <p className="text-[10px] text-gray-700 mt-1.5 text-center">↵ Enter to send</p>
-          </div>
         </div>
 
-        {/* ── Right Panel: Live Preview (70%) ───────────────────────────── */}
-        <div className="flex-1 bg-gray-950 flex flex-col overflow-hidden">
+        {/* ── Right panel: Preview / Config / Deploy ─────────────────────── */}
+        <div className="flex-1 bg-gray-50 flex flex-col overflow-hidden">
 
-          {/* Preview toolbar */}
-          <div className="h-10 bg-gray-900/50 border-b border-gray-800 flex items-center px-4 gap-3">
-            <div className="flex items-center gap-1.5 bg-gray-800 rounded-lg px-3 py-1.5 flex-1 max-w-xs">
-              <Globe className="w-3 h-3 text-gray-500" />
-              <span className="text-xs text-gray-500 font-mono truncate">
-                {project?.slug ?? "preview"}.block67.app
-              </span>
-            </div>
-            <div className="flex-1" />
-            <button
-              onClick={() => setConfig({ ...(template?.defaultConfig ?? {}) })}
-              className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-400 transition-colors"
-              title="Reset to defaults"
-            >
-              <RefreshCw className="w-3 h-3" />
-              Reset
-            </button>
-            <span className="text-xs text-gray-700">
-              {viewMode === "desktop" ? "Full width" : viewMode === "tablet" ? "768px" : "375px"}
-            </span>
-          </div>
+          {/* Preview tab */}
+          {tab === "preview" && (
+            <>
+              {buildingRight ? (
+                // "Building your idea..." state
+                <div className="flex-1 flex flex-col items-center justify-center px-4">
+                  <div className="w-20 h-20 rounded-2xl bg-white shadow-lg flex items-center justify-center mb-6 ring-1 ring-gray-100">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center animate-pulse">
+                      <Zap className="w-6 h-6 text-indigo-600" />
+                    </div>
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-800 mb-2">Building your idea…</h2>
+                  <div className="w-56 h-1 bg-gray-200 rounded-full overflow-hidden mb-6">
+                    <div
+                      className="h-full bg-indigo-500 rounded-full"
+                      style={{ animation: "progress 2s ease-in-out infinite" }}
+                    />
+                  </div>
+                  <p className="text-sm text-gray-400 mb-1">Did you know?</p>
+                  <p className="text-sm text-gray-500 flex items-center gap-1.5 text-center max-w-xs">
+                    <span className="text-indigo-400">⟳</span>
+                    {didYouKnow}
+                  </p>
+                  <style>{`@keyframes progress{0%{width:0;margin-left:0}50%{width:100%;margin-left:0}100%{width:0;margin-left:100%}}`}</style>
+                </div>
+              ) : (
+                // Live preview
+                <div className="flex-1 overflow-auto flex items-start justify-center p-6">
+                  <div
+                    className="bg-white rounded-xl overflow-hidden shadow-lg ring-1 ring-gray-200 transition-all duration-300"
+                    style={{
+                      width: VIEW_W[viewMode],
+                      minHeight: "560px",
+                      maxWidth: "100%",
+                      minWidth: viewMode === "desktop" ? "860px" : undefined,
+                      height: viewMode === "mobile" ? "780px" : undefined,
+                    }}
+                  >
+                    <TemplatePreview templateId={templateId} config={config} />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
-          {/* Preview area */}
-          <div className="flex-1 overflow-auto flex items-start justify-center p-6 bg-[radial-gradient(circle_at_50%_50%,_#1a1a2e_0%,_#0f0f14_70%)]">
-            <div
-              className="bg-white rounded-lg overflow-hidden shadow-2xl transition-all duration-300"
-              style={{
-                width: VIEW_WIDTHS[viewMode],
-                minHeight: "600px",
-                maxWidth: "100%",
-                height: viewMode === "mobile" ? "780px" : "auto",
-                minWidth: viewMode === "desktop" ? "900px" : undefined,
-              }}
-            >
-              <TemplatePreview templateId={templateId} config={config} />
+          {/* Config tab */}
+          {tab === "config" && template && (
+            <div className="flex-1 overflow-auto p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-1">{template.name} Config</h2>
+              <p className="text-sm text-gray-500 mb-6">Directly edit your project configuration.</p>
+              <div className="max-w-lg space-y-4">
+                {template.params.map((param) => (
+                  <div key={param.key}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      {param.label}
+                      {param.required && <span className="text-red-400 ml-1">*</span>}
+                    </label>
+                    {param.type === "color" ? (
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={config[param.key] || "#6366f1"}
+                          onChange={(e) => setConfig({ ...config, [param.key]: e.target.value })}
+                          className="w-10 h-10 rounded-xl cursor-pointer border-0 bg-transparent"
+                        />
+                        <span className="text-sm text-gray-500 font-mono">{config[param.key]}</span>
+                      </div>
+                    ) : param.type === "boolean" ? (
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config[param.key] === "true"}
+                          onChange={(e) => setConfig({ ...config, [param.key]: e.target.checked ? "true" : "false" })}
+                          className="w-4 h-4 rounded"
+                        />
+                        <span className="text-sm text-gray-600">{config[param.key] === "true" ? "Enabled" : "Disabled"}</span>
+                      </label>
+                    ) : (
+                      <input
+                        type="text"
+                        value={config[param.key] ?? ""}
+                        onChange={(e) => setConfig({ ...config, [param.key]: e.target.value })}
+                        placeholder={param.placeholder}
+                        className="w-full bg-white border border-gray-200 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 text-gray-900 text-sm rounded-xl px-3.5 py-2.5 outline-none transition-colors placeholder-gray-300"
+                      />
+                    )}
+                    {param.description && (
+                      <p className="text-xs text-gray-400 mt-1">{param.description}</p>
+                    )}
+                  </div>
+                ))}
+                <button
+                  onClick={() => { saveProject(); setTab("preview"); }}
+                  className="w-full bg-gray-900 hover:bg-indigo-600 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+                >
+                  Save & Preview
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Deploy tab */}
+          {tab === "deploy" && (
+            <div className="flex-1 overflow-auto p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-1">Deploy Smart Contract</h2>
+              <p className="text-sm text-gray-500 mb-6">Connect your wallet and deploy to any EVM chain.</p>
+              <div className="max-w-md space-y-3">
+                <div className="bg-white border border-gray-200 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Select Network</p>
+                  {[
+                    { name: "Ethereum Mainnet", id: 1, logo: "Ξ", color: "#627EEA" },
+                    { name: "Base", id: 8453, logo: "⬡", color: "#0052FF" },
+                    { name: "Polygon", id: 137, logo: "⬡", color: "#8247E5" },
+                    { name: "Sepolia Testnet", id: 11155111, logo: "Ξ", color: "#9B9B9B" },
+                  ].map((chain) => (
+                    <button
+                      key={chain.id}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                        style={{ background: chain.color }}>
+                        {chain.logo}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{chain.name}</p>
+                        <p className="text-xs text-gray-400">Chain ID: {chain.id}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <button
+                  className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-black font-bold text-sm py-3 rounded-xl transition-colors"
+                >
+                  <Rocket className="w-4 h-4" />
+                  Connect Wallet & Deploy
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* ── Publish Modal ─────────────────────────────────────────────────── */}
       {publishModal && (
-        <Modal onClose={() => setPublishModal(false)} title="Publish Project">
+        <Modal title="Publish Project" onClose={() => setPublishModal(false)}>
           <div className="space-y-4">
-            <div className="bg-gray-800 rounded-xl p-4">
-              <p className="text-xs text-gray-400 mb-1">Your app will be live at:</p>
-              <p className="text-indigo-400 font-mono text-sm font-semibold">
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <p className="text-xs text-gray-500 mb-1">Your app will be live at:</p>
+              <p className="text-indigo-600 font-mono text-sm font-semibold">
                 https://{project?.slug}.block67.app
               </p>
             </div>
-            <p className="text-gray-400 text-sm">
-              Publishing makes your app publicly accessible. You can unpublish it at any time from project settings.
+            <p className="text-sm text-gray-500">
+              Publishing makes your app publicly accessible. You can take it offline at any time.
             </p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setPublishModal(false)}
-                className="flex-1 py-2.5 bg-gray-800 text-gray-300 text-sm rounded-xl hover:bg-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={publishProject}
-                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-              >
-                <Globe className="w-4 h-4" />
-                Publish Now
+              <button onClick={() => setPublishModal(false)} className="flex-1 py-2.5 bg-gray-100 text-gray-700 text-sm rounded-xl hover:bg-gray-200 transition-colors">Cancel</button>
+              <button onClick={publishProject} className="flex-1 py-2.5 bg-gray-900 hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
+                <Globe className="w-4 h-4" /> Publish Now
               </button>
             </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* ── Deploy Modal ──────────────────────────────────────────────────── */}
-      {deployModal && (
-        <Modal onClose={() => setDeployModal(false)} title="Deploy Smart Contract">
-          <div className="space-y-4">
-            <p className="text-gray-400 text-sm">
-              Deploy your smart contract to the blockchain. Connect your wallet and select a network.
-            </p>
-            <div className="space-y-2">
-              {["Ethereum Mainnet", "Base", "Polygon", "Sepolia Testnet"].map((chain) => (
-                <button
-                  key={chain}
-                  className="w-full flex items-center justify-between bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl p-3 transition-colors text-sm text-gray-300"
-                >
-                  <span>{chain}</span>
-                  <ChevronDown className="w-4 h-4 -rotate-90 text-gray-600" />
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setDeployModal(false)}
-              className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-black text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
-            >
-              <Rocket className="w-4 h-4" />
-              Connect Wallet & Deploy
-            </button>
           </div>
         </Modal>
       )}
@@ -615,17 +720,13 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
   );
 }
 
-// ── Modal ────────────────────────────────────────────────────────────────────
-
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
-          <h3 className="text-white font-semibold">{title}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
-            <X className="w-5 h-5" />
-          </button>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-semibold text-gray-900">{title}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-5">{children}</div>
       </div>
