@@ -1,10 +1,9 @@
-// Protected app layout — requires auth, shows sidebar
+// Protected app layout — requires auth, renders children (pages control their own chrome)
 export const dynamic = "force-dynamic";
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
-import { AppSidebar } from "@/components/app-sidebar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   let session = null;
@@ -15,10 +14,5 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
   if (!session) redirect("/login");
 
-  return (
-    <div className="min-h-screen bg-gray-950 flex">
-      <AppSidebar user={session.user} />
-      <main className="flex-1 ml-64 p-8 min-h-screen">{children}</main>
-    </div>
-  );
+  return <>{children}</>;
 }
