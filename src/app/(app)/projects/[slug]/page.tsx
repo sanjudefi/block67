@@ -387,8 +387,8 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
       if (hasConfigChanges) {
         newConfig = { ...config, ...data.config };
         setConfig(newConfig);
-        setTab("frontend"); // show the visual update
-        setTimeout(() => flashPreview(data.message ?? "Preview updated"), 100);
+        // Stay on current tab — don't auto-jump to frontend
+        setTimeout(() => flashPreview(data.message ?? "Config updated"), 100);
         if (project) {
           await fetch(`/api/projects/${project.id}`, {
             method: "PATCH",
@@ -398,7 +398,7 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
         }
       }
 
-      const rawText = data.message ?? "Done! Preview updated.";
+      const rawText = data.message ?? "Config updated. Review architecture, then compile.";
       const moduleSuggestions: ModuleSuggestion[] = data.moduleSuggestions ?? [];
 
       const { plan, remainder } = isInitial
