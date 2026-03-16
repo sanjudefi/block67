@@ -11,7 +11,6 @@ import { db as prisma } from "@/lib/db/index";
 async function getOwnedProject(projectId: string, userId: string) {
   return prisma.project.findFirst({
     where: { id: projectId, ownerId: userId },
-    include: { deployments: { orderBy: { createdAt: "desc" } } },
   });
 }
 

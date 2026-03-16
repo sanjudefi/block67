@@ -23,8 +23,7 @@ export default async function BuilderPage({ params }: { params: { slug: string }
   }
 
   const project = await db.project.findFirst({
-    where:   { slug: params.slug, ownerId: token.sub },
-    include: { deployments: { orderBy: { createdAt: "desc" }, take: 1 } },
+    where: { slug: params.slug, ownerId: token.sub },
   });
 
   if (!project) notFound();

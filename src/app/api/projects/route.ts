@@ -16,9 +16,8 @@ export async function GET(_req: NextRequest) {
   }
 
   const projects = await prisma.project.findMany({
-    where: { ownerId: session.user.id },
+    where:   { ownerId: session.user.id },
     orderBy: { updatedAt: "desc" },
-    include: { deployments: { orderBy: { createdAt: "desc" }, take: 1 } },
   });
 
   return NextResponse.json({ projects });

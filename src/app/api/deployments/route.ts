@@ -46,7 +46,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Unknown chain ID: ${evmChainId}` }, { status: 400 });
   }
 
-  const deployment = await (prisma.deployment.create as Function)({
+  // Store ABI inside constructorArgs as _abi key since the standalone
+  // contractAbi column may not exist in the DB yet (migration pending).
+  const mergedArgs = {
+    ...(constructorArgs ?? {}),
+    ...(contractAbi ? { _abi: contractAbi } : {}),
+  };
+
+  const deployment = await prisma.deployment.create({
     data: {
       projectId,
       chainId:         chain.id,
@@ -54,8 +61,7 @@ export async function POST(req: NextRequest) {
       contractAddress,
       txHash:          txHash ?? null,
       deployerAddress,
-      constructorArgs: constructorArgs ?? {},
-      contractAbi:     contractAbi ?? null,
+      constructorArgs: mergedArgs,
       gasUsed:         gasUsed ?? null,
       deployedAt:      new Date(),
     },
@@ -91,8 +97,23 @@ export async function GET(req: NextRequest) {
 
   const deployments = await prisma.deployment.findMany({
     where:   { projectId },
-    include: { chain: true },
     orderBy: { createdAt: "desc" },
+    select: {
+      id:              true,
+      projectId:       true,
+      chainId:         true,
+      status:          true,
+      contractAddress: true,
+      txHash:          true,
+      deployerAddress: true,
+      constructorArgs: true,
+      gasUsed:         true,
+      errorMessage:    true,
+      deployedAt:      true,
+      createdAt:       true,
+      chain:           true,
+      // contractAbi excluded — column not yet in DB (migration pending)
+    },
   });
 
   return NextResponse.json({ deployments });

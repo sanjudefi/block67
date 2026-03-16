@@ -41,7 +41,21 @@ async function getProject(slug: string) {
       deployments: {
         orderBy: { createdAt: "desc" },
         take:    1,
-        include: { chain: true },
+        // Use explicit select so Prisma doesn't SELECT the `contractAbi`
+        // column which may not exist in the DB yet (migration pending).
+        select: {
+          id:              true,
+          contractAddress: true,
+          txHash:          true,
+          deployerAddress: true,
+          constructorArgs: true,
+          status:          true,
+          gasUsed:         true,
+          errorMessage:    true,
+          deployedAt:      true,
+          createdAt:       true,
+          chain:           true, // full chain record needed for RPC/explorer URLs
+        },
       },
       owner: { select: { name: true, email: true } },
     },
@@ -66,7 +80,8 @@ export default async function SitePage({ params }: { params: { slug: string } })
         explorerUrl:     lastDeploy.chain.explorerUrl,
         nativeCurrency:  lastDeploy.chain.nativeCurrency,
         rpcUrl:          lastDeploy.chain.rpcUrl,
-        contractAbi:     ((lastDeploy as unknown as { contractAbi: object[] | null }).contractAbi) ?? null,
+        // ABI stored in constructorArgs._abi (contractAbi column not yet migrated)
+        contractAbi:     ((lastDeploy.constructorArgs as Record<string, unknown> | null)?._abi as object[] | null) ?? null,
         txHash:          lastDeploy.txHash ?? null,
       }
     : null;
