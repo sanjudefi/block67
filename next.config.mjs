@@ -17,9 +17,20 @@ const nextConfig = {
       ],
     },
   },
-  // Suppress solc/emscripten webpack warnings
+  // Suppress solc/emscripten webpack warnings + stub missing optional deps
+  // that ship inside @metamask/sdk (React Native) and pino (pino-pretty)
   webpack(config) {
     config.externals = [...(config.externals || []), { solc: "commonjs solc" }];
+
+    // These packages are required by deep dependencies but don't exist in a
+    // Next.js / browser build. Aliasing to false makes webpack emit an empty
+    // module instead of failing the build.
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@react-native-async-storage/async-storage": false,
+      "pino-pretty": false,
+    };
+
     return config;
   },
 };
