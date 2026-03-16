@@ -52,7 +52,7 @@ async function getProject(slug: string) {
 export default async function SitePage({ params }: { params: { slug: string } }) {
   const project = await getProject(params.slug);
 
-  if (!project || project.status !== "ACTIVE") notFound();
+  if (!project || project.status === "ARCHIVED") notFound();
 
   const cfg       = (project.paramValues ?? {}) as Record<string, string>;
   const lastDeploy = project.deployments[0] ?? null;
@@ -94,9 +94,15 @@ export default async function SitePage({ params }: { params: { slug: string } })
         <span className="text-gray-200">·</span>
         <span className="text-xs text-gray-500 font-mono truncate">{params.slug}.block67.app</span>
         <div className="ml-auto flex items-center gap-1.5">
-          <span className="flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
-          </span>
+          {project.status === "ACTIVE" ? (
+            <span className="flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-[11px] text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-400" /> Draft
+            </span>
+          )}
         </div>
       </nav>
 
