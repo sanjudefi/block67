@@ -380,10 +380,7 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
   // Load project
   useEffect(() => {
     fetch("/api/projects")
-      .then(async (r) => {
-        if (!r.ok) throw new Error("api-error");
-        return r.json();
-      })
+      .then((r) => r.json())
       .then((d) => {
         const found = (d.projects ?? []).find((p: Project) => p.slug === params.slug);
         if (!found) { setNotFound(true); setLoading(false); return; }
