@@ -111,11 +111,10 @@ export default function DashboardPage() {
 
         {/* ── Hero heading ────────────────────────────────────────────── */}
         <h1 className="text-[2.6rem] font-bold text-gray-900 text-center leading-tight mb-2 tracking-tight">
-          What will you{" "}
+          Launch your Web3 Project{" "}
           <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
-            launch
-          </span>{" "}
-          next?
+            in Minutes
+          </span>
         </h1>
         <p className="text-gray-500 text-center mb-8 text-[15px]">
           Describe your crypto project — Block67 generates audited smart contracts, compiled and ready to deploy.{" "}
@@ -167,16 +166,16 @@ export default function DashboardPage() {
         {/* ── Quick-launch row ────────────────────────────────────────── */}
         <div className="flex flex-wrap gap-2 justify-center mb-10">
           {[
-            { label: "🚀 Meme Coin",         p: "Launch a meme coin with 1 billion supply, 2% buy/sell tax and staking rewards" },
-            { label: "🖼 NFT Collection",    p: "Create an ERC-721 NFT collection with 10,000 supply and 0.05 ETH mint price" },
-            { label: "🏛 DAO Governance",    p: "Build a DAO with on-chain voting, proposals, timelock and multi-sig treasury" },
-            { label: "💰 Staking Platform",  p: "Create a staking platform with 18% APY and flexible lock periods" },
-            { label: "🔐 Multisig Wallet",   p: "Deploy a multi-sig wallet with 3-of-5 signers and spending limits" },
-            { label: "📊 Tokenized Fund",    p: "Create a tokenized investment fund with ERC-20 shares and yield distribution" },
+            { label: "🚀 Meme Coin",         p: "I want to launch a meme coin. " },
+            { label: "🖼 NFT Collection",    p: "I want to create an NFT collection. " },
+            { label: "🏛 DAO Governance",    p: "I want to build a DAO with on-chain governance. " },
+            { label: "💰 Staking Platform",  p: "I want to build a staking platform. " },
+            { label: "🔐 Multisig Wallet",   p: "I want to deploy a multi-sig wallet. " },
+            { label: "📊 Tokenized Fund",    p: "I want to create a tokenized investment fund. " },
           ].map(({ label, p }) => (
             <button
               key={label}
-              onClick={() => handleBuild(p)}
+              onClick={() => { setPrompt(p); setTimeout(() => textareaRef.current?.focus(), 0); }}
               className="text-xs bg-white/70 hover:bg-white border border-gray-200 hover:border-indigo-300 hover:text-indigo-700 text-gray-600 px-3.5 py-1.5 rounded-full transition-all shadow-sm"
             >
               {label}
