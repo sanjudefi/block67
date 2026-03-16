@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useAccount, useConnect, useWalletClient } from "wagmi";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -14,14 +13,24 @@ export default function LoginPage() {
   const [error, setError]       = useState("");
   const [loading, setLoading]   = useState(false);
 
-  const { address, isConnected }          = useAccount();
-  const { connect, connectors }           = useConnect();
-  const { data: walletClient }            = useWalletClient();
+  // ethers.js wallet state
+  const [address, setAddress]     = useState("");
+  const isConnected               = !!address;
 
-  function connectWallet() {
-    const inj = connectors.find((c) => c.id === "injected") ?? connectors[0];
-    if (!inj) { setError("No wallet found. Install MetaMask and refresh."); return; }
-    connect({ connector: inj });
+  /** Connect MetaMask via ethers.js / window.ethereum */
+  async function connectWallet() {
+    setError("");
+    if (typeof window === "undefined" || !window.ethereum) {
+      setError("MetaMask not found. Install it and refresh.");
+      return;
+    }
+    try {
+      const accounts: string[] = await window.ethereum.request({ method: "eth_requestAccounts" });
+      setAddress(accounts[0] ?? "");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg.includes("rejected") || msg.includes("denied") ? "Connection rejected." : msg);
+    }
   }
 
   const handleEmailLogin = async (e: React.FormEvent) => {
@@ -34,13 +43,20 @@ export default function LoginPage() {
   };
 
   const handleWalletLogin = async () => {
-    if (!address || !walletClient) return;
+    if (!address) return;
     setError(""); setLoading(true);
     try {
+      // Fetch nonce
       const res  = await fetch(`/api/auth/nonce?address=${address}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      const signature = await walletClient.signMessage({ message: data.nonce });
+
+      // Sign with ethers.js
+      const { ethers } = await import("ethers");
+      const provider  = new ethers.BrowserProvider(window.ethereum);
+      const signer    = await provider.getSigner();
+      const signature = await signer.signMessage(data.nonce);
+
       const result = await signIn("credentials", { type: "wallet", address, signature, nonce: data.nonce, redirect: false });
       if (result?.error) setError("Wallet sign-in failed. Please try again.");
       else router.push("/dashboard");
@@ -111,7 +127,7 @@ export default function LoginPage() {
             </form>
           )}
 
-          {/* Wallet */}
+          {/* Wallet (ethers.js) */}
           {tab === "wallet" && (
             <div className="space-y-3">
               {!isConnected ? (
@@ -122,7 +138,7 @@ export default function LoginPage() {
               ) : (
                 <>
                   <div className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5">
-                    Connected: <span className="font-mono text-indigo-600">{address?.slice(0,6)}…{address?.slice(-4)}</span>
+                    Connected: <span className="font-mono text-indigo-600">{address.slice(0, 6)}…{address.slice(-4)}</span>
                   </div>
                   <button onClick={handleWalletLogin} disabled={loading}
                     className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">

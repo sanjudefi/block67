@@ -6,14 +6,13 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useConnect, useDisconnect, useAccount, useSwitchChain } from "wagmi";
-import { sepolia } from "wagmi/chains";
+import { SOLIDITY_VERSIONS, DEFAULT_SOLIDITY_VERSION } from "@/lib/solidity/versions";
 import {
   ArrowLeft, Zap, Globe, Rocket, Save, Check, X,
   Monitor, Tablet, Smartphone, Settings2, ChevronDown,
   Send, Mic, RefreshCw, Eye, Sliders, CircuitBoard,
   CheckCircle2, Loader2, Layers, Terminal,
-  ChevronRight, MessageSquare,
+  ChevronRight, MessageSquare, Copy, ExternalLink,
 } from "lucide-react";
 import { TemplatePreview } from "@/lib/templates/previews";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
@@ -230,22 +229,39 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
 
-  // Wallet / deploy
-  const { address, isConnected, chain: walletChain }            = useAccount();
-  const { connect, connectors, isPending: connectPending,
-          error: connectErr }                                    = useConnect();
-  const { disconnect }                                           = useDisconnect();
-  const { switchChain, isPending: switchPending,
-          error: switchErr }                                     = useSwitchChain();
-  const [deployError, setDeployError]                           = useState<string | null>(null);
+  // ── ethers.js wallet state (no wagmi on this page) ──────────────────────
+  const [ethAddress,  setEthAddress]  = useState<string>("");
+  const [ethChainId,  setEthChainId]  = useState<number | null>(null);
+  const [deployError, setDeployError] = useState<string | null>(null);
+  const [deploying,   setDeploying]   = useState(false);
+  const [deployTxHash,      setDeployTxHash]      = useState<string>("");
+  const [deployedAddress,   setDeployedAddress]   = useState<string>("");
+  const [constructorArgs,   setConstructorArgs]   = useState<Record<string, string>>({});
 
-  // Surface wallet errors automatically
+  const isConnected = !!ethAddress;
+  const SEPOLIA_CHAIN_ID = 11155111;
+
+  // Listen for MetaMask account / chain changes
   useEffect(() => {
-    if (connectErr) setDeployError(connectErr.message);
-  }, [connectErr]);
-  useEffect(() => {
-    if (switchErr) setDeployError(switchErr.message);
-  }, [switchErr]);
+    if (typeof window === "undefined" || !window.ethereum) return;
+    const handleAccounts = (accounts: string[]) => setEthAddress(accounts[0] ?? "");
+    const handleChain    = (chainId: string)    => setEthChainId(parseInt(chainId, 16));
+    window.ethereum.on("accountsChanged", handleAccounts);
+    window.ethereum.on("chainChanged",    handleChain);
+    // Check if already connected
+    window.ethereum.request({ method: "eth_accounts" }).then((accs: string[]) => {
+      if (accs[0]) {
+        setEthAddress(accs[0]);
+        window.ethereum.request({ method: "eth_chainId" }).then((c: string) =>
+          setEthChainId(parseInt(c, 16))
+        );
+      }
+    });
+    return () => {
+      window.ethereum.removeListener("accountsChanged", handleAccounts);
+      window.ethereum.removeListener("chainChanged",    handleChain);
+    };
+  }, []);
 
   const [project, setProject]       = useState<Project | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -280,6 +296,13 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
   const [compiling, setCompiling]     = useState(false);
   const [compileLogs, setCompileLogs] = useState<string[]>([]);
   const [compiled, setCompiled]       = useState(false);
+  const [solidityVersion, setSolidityVersion] = useState<string>(DEFAULT_SOLIDITY_VERSION);
+  const [soliditySource, setSoliditySource]   = useState("");
+  const [compileResult, setCompileResult]     = useState<{
+    contracts: Record<string, { abi: unknown[]; bytecode: string }>;
+    solcVersion: string;
+  } | null>(null);
+  const [selectedDeployContract, setSelectedDeployContract] = useState<string>("");
 
   // Download state
   const [downloadModal, setDownloadModal] = useState(false);
@@ -445,47 +468,67 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
   }
 
   async function handleCompile() {
-    if (!architecture) return;
+    if (!project) return;
     setCompiling(true);
     setCompiled(false);
     setCompileLogs([]);
+    setCompileResult(null);
     const logs: string[] = [];
+    const addLog = (line: string) => { logs.push(line); setCompileLogs([...logs]); };
 
-    const addLog = (line: string) => {
-      logs.push(line);
-      setCompileLogs([...logs]);
-    };
-    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    try {
+      addLog(`▶ Fetching Solidity source (pragma ^${solidityVersion})…`);
+      const srcRes = await fetch(`/api/projects/${project.id}/source?version=${solidityVersion}`);
+      if (!srcRes.ok) throw new Error("Failed to fetch source");
+      const { source, filename } = await srcRes.json() as { source: string; filename: string };
+      setSoliditySource(source);
+      addLog(`✓ Source loaded: ${filename}`);
 
-    addLog("▶ Initialising Hardhat compilation...");
-    await wait(350);
-    addLog("▶ Resolving OpenZeppelin imports...");
-    await wait(300);
-    addLog("✓ Dependencies resolved");
-    await wait(150);
+      addLog(`▶ Compiling with solc ${solidityVersion}…`);
+      const compRes = await fetch("/api/compile", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ source, filename }),
+      });
+      const result = await compRes.json() as {
+        success: boolean;
+        contracts?: Record<string, { abi: unknown[]; bytecode: string }>;
+        errors?: string[];
+        warnings?: string[];
+        solcVersion?: string;
+        error?: string;
+      };
 
-    const activeContracts = architecture.contracts.filter((c) =>
-      c.modules.some((m) => moduleStates[`${c.id}:${m.id}`] ?? m.defaultEnabled)
-    );
+      if (!compRes.ok || result.error) throw new Error(result.error ?? "Compilation request failed");
 
-    for (const contract of activeContracts) {
-      addLog(`▶ Compiling ${contract.name}.sol`);
-      await wait(250 + Math.random() * 350);
-      addLog(`✓ ${contract.name}.sol compiled in ${(Math.random() * 0.4 + 0.1).toFixed(2)}s`);
+      // Show warnings
+      for (const w of result.warnings ?? []) addLog(`⚠ ${w.split("\n")[0]}`);
+
+      if (!result.success || !result.contracts) {
+        for (const e of result.errors ?? []) addLog(`✗ ${e.split("\n").slice(0, 2).join(" | ")}`);
+        addLog(`✗ Compilation failed · ${(result.errors ?? []).length} error(s)`);
+        setCompiling(false);
+        return;
+      }
+
+      const names = Object.keys(result.contracts);
+      for (const name of names) {
+        const c = result.contracts[name];
+        const byteLen = Math.round((c.bytecode.length - 2) / 2);
+        addLog(`✓ ${name} · ABI: ${(c.abi as unknown[]).length} items · Bytecode: ${byteLen} bytes`);
+      }
+
+      addLog(`✓ Build successful · ${names.length} contract(s) · 0 errors · ${(result.warnings ?? []).length} warning(s)`);
+      addLog(`  solc ${result.solcVersion}`);
+
+      setCompileResult({ contracts: result.contracts, solcVersion: result.solcVersion ?? "" });
+      setSelectedDeployContract(names[0] ?? "");
+      setCompiled(true);
+    } catch (err: unknown) {
+      addLog(`✗ ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setCompiling(false);
     }
-
-    await wait(200);
-    addLog("▶ Generating ABI files...");
-    await wait(150);
-    for (const c of activeContracts) {
-      addLog(`✓ artifacts/${c.name}.abi.json`);
-      await wait(80);
-    }
-
-    await wait(200);
-    addLog(`✓ Build successful · ${activeContracts.length} contract${activeContracts.length !== 1 ? "s" : ""} · 0 errors · 0 warnings`);
-    setCompiling(false);
-    setCompiled(true);
   }
 
   async function publishProject() {
@@ -1097,35 +1140,28 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
           {/* ── Compile tab ──────────────────────────────────────────── */}
           {tab === "compile" && (
             <div className="flex-1 overflow-auto p-6 bg-white">
-              <div className="max-w-2xl">
-                {/* Simulation notice */}
-                <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5">
-                  <span className="text-amber-500 text-base mt-0.5">⚡</span>
-                  <div>
-                    <p className="text-sm font-bold text-amber-800">Preview Simulation</p>
-                    <p className="text-xs text-amber-700 mt-0.5">
-                      This is a visual preview of what compilation will look like. Real Solidity compilation runs locally after you <strong>Download Project</strong> and run <code className="bg-amber-100 px-1 rounded">npx hardhat compile</code>.
-                    </p>
-                  </div>
-                </div>
+              <div className="max-w-2xl space-y-5">
 
-                <div className="flex items-center justify-between mb-5">
+                {/* Header */}
+                <div className="flex items-center justify-between">
                   <div>
                     <h2 className="font-bold text-gray-900">Compile Contracts</h2>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {architecture?.contracts.length ?? 0} contracts · Hardhat + Solidity 0.8.24
-                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">Real solc compiler · ABI + Bytecode</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setDownloadCfg((d) => ({ ...d, projectName: d.projectName || projectName }));
-                        setDownloadModal(true);
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 text-gray-600 hover:text-indigo-700 text-sm font-semibold rounded-xl transition-colors"
-                    >
-                      <Terminal className="w-4 h-4" /> Download Project
-                    </button>
+                    {/* Solidity version selector — latest → oldest */}
+                    <div className="relative">
+                      <select
+                        value={solidityVersion}
+                        onChange={(e) => { setSolidityVersion(e.target.value); setCompiled(false); setCompileResult(null); setSoliditySource(""); }}
+                        className="appearance-none pl-3 pr-7 py-2 text-xs font-mono border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:border-indigo-400 cursor-pointer"
+                      >
+                        {SOLIDITY_VERSIONS.map((v) => (
+                          <option key={v} value={v}>solidity ^{v}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-3 h-3 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                     <button
                       onClick={handleCompile}
                       disabled={compiling}
@@ -1137,54 +1173,113 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
                   </div>
                 </div>
 
-                {/* Contract summary */}
-                <div className="grid grid-cols-3 gap-3 mb-5">
-                  {architecture?.contracts.map((c) => (
-                    <div key={c.id} className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-5 h-5 rounded flex items-center justify-center text-white text-[10px] font-black" style={{ background: c.color }}>
-                          {c.name.slice(0, 1)}
+                {/* Solidity source preview */}
+                {soliditySource && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Solidity Source</p>
+                      <button onClick={() => navigator.clipboard.writeText(soliditySource)}
+                        className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-indigo-600 transition-colors">
+                        <Copy className="w-3 h-3" /> Copy
+                      </button>
+                    </div>
+                    <pre className="bg-gray-950 rounded-xl p-4 font-mono text-[11px] text-emerald-300 max-h-64 overflow-auto border border-gray-800 whitespace-pre-wrap leading-relaxed">
+                      {soliditySource}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Compiler console */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Compiler Output</p>
+                  <div className="bg-gray-950 rounded-xl p-4 font-mono text-xs min-h-40 max-h-72 overflow-y-auto border border-gray-800">
+                    {compileLogs.length === 0 ? (
+                      <p className="text-gray-600">{"// Select a version and click Compile"}</p>
+                    ) : (
+                      compileLogs.map((log, i) => (
+                        <div key={i} className={`leading-relaxed ${
+                          log.startsWith("✓") ? "text-emerald-400" :
+                          log.startsWith("✗") ? "text-red-400"    :
+                          log.startsWith("▶") ? "text-indigo-400" :
+                          log.startsWith("⚠") ? "text-yellow-400" :
+                          log.startsWith("  ") ? "text-gray-500"  :
+                          "text-gray-400"
+                        }`}>{log}</div>
+                      ))
+                    )}
+                    {compiling && <div className="text-gray-600 animate-pulse mt-1">▌</div>}
+                  </div>
+                </div>
+
+                {/* ABI + Bytecode (shown after successful compile) */}
+                {compiled && compileResult && !compiling && (
+                  <div className="space-y-4">
+                    {/* Contract selector if multiple */}
+                    {Object.keys(compileResult.contracts).length > 1 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-xs text-gray-500">Contract:</p>
+                        {Object.keys(compileResult.contracts).map((name) => (
+                          <button key={name} onClick={() => setSelectedDeployContract(name)}
+                            className={`text-xs px-3 py-1 rounded-lg font-medium transition-colors ${
+                              selectedDeployContract === name
+                                ? "bg-indigo-600 text-white"
+                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            }`}>
+                            {name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {compileResult.contracts[selectedDeployContract] && (
+                      <>
+                        {/* ABI */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              ABI · {(compileResult.contracts[selectedDeployContract].abi as unknown[]).length} items
+                            </p>
+                            <button onClick={() => navigator.clipboard.writeText(
+                              JSON.stringify(compileResult.contracts[selectedDeployContract].abi, null, 2)
+                            )} className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-indigo-600 transition-colors">
+                              <Copy className="w-3 h-3" /> Copy ABI
+                            </button>
+                          </div>
+                          <pre className="bg-gray-950 rounded-xl p-4 font-mono text-[11px] text-cyan-300 max-h-48 overflow-auto border border-gray-800 whitespace-pre">
+                            {JSON.stringify(compileResult.contracts[selectedDeployContract].abi, null, 2)}
+                          </pre>
                         </div>
-                        <p className="text-xs font-semibold text-gray-900 truncate">{c.name}</p>
-                      </div>
-                      <p className="text-[10px] text-gray-400">{c.standard}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">{enabledCountFor(c)} modules</p>
-                    </div>
-                  ))}
-                </div>
 
-                {/* Console output */}
-                <div className="bg-gray-950 rounded-xl p-4 font-mono text-xs min-h-52 max-h-96 overflow-y-auto border border-gray-800">
-                  {compileLogs.length === 0 ? (
-                    <p className="text-gray-600">{"// Click Compile to build your contracts"}</p>
-                  ) : (
-                    compileLogs.map((log, i) => (
-                      <div key={i} className={`leading-relaxed ${
-                        log.startsWith("✓") ? "text-emerald-400" :
-                        log.startsWith("✗") ? "text-red-400" :
-                        log.startsWith("▶") ? "text-indigo-400" :
-                        log.startsWith("⚠") ? "text-yellow-400" :
-                        "text-gray-400"
-                      }`}>
-                        {log}
-                      </div>
-                    ))
-                  )}
-                  {compiling && <div className="text-gray-600 animate-pulse mt-1">▌</div>}
-                </div>
+                        {/* Bytecode */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              Bytecode · {Math.round((compileResult.contracts[selectedDeployContract].bytecode.length - 2) / 2)} bytes
+                            </p>
+                            <button onClick={() => navigator.clipboard.writeText(
+                              compileResult.contracts[selectedDeployContract].bytecode
+                            )} className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-indigo-600 transition-colors">
+                              <Copy className="w-3 h-3" /> Copy Bytecode
+                            </button>
+                          </div>
+                          <div className="bg-gray-950 rounded-xl p-4 font-mono text-[11px] text-yellow-300 border border-gray-800 overflow-hidden">
+                            <p className="truncate">{compileResult.contracts[selectedDeployContract].bytecode}</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
 
-                {compiled && !compiling && (
-                  <div className="mt-4 flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                    <div className="flex items-center gap-2 text-sm text-emerald-700 font-semibold">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Build successful · {architecture?.contracts.length} contracts ready
+                    {/* Success banner → Deploy */}
+                    <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                      <div className="flex items-center gap-2 text-sm text-emerald-700 font-semibold">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Build successful · {Object.keys(compileResult.contracts).length} contract(s) ready
+                      </div>
+                      <button onClick={() => setTab("deploy")}
+                        className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg transition-colors">
+                        Deploy →
+                      </button>
                     </div>
-                    <button
-                      onClick={() => setTab("deploy")}
-                      className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      Deploy →
-                    </button>
                   </div>
                 )}
               </div>
@@ -1194,34 +1289,36 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
           {/* ── Deploy tab ───────────────────────────────────────────── */}
           {tab === "deploy" && (
             <div className="flex-1 overflow-auto p-6 bg-white">
-              <div className="max-w-md">
+              <div className="max-w-md space-y-4">
+
                 {/* Must compile first */}
                 {!compiled && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5 flex items-center gap-2">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-2">
                     <span className="text-amber-500 text-sm">⚠️</span>
                     <p className="text-sm text-amber-700">
-                      Run the compile step first.{" "}
+                      Compile first to get ABI + Bytecode.{" "}
                       <button onClick={() => setTab("compile")} className="underline font-semibold">Go to Compile →</button>
                     </p>
                   </div>
                 )}
 
-                <div className="flex items-center gap-3 mb-6">
+                {/* Header */}
+                <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center">
                     <CircuitBoard className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <h2 className="font-bold text-gray-900">Deploy Smart Contract</h2>
-                    <p className="text-xs text-gray-400">Connect MetaMask and launch on Sepolia testnet</p>
+                    <p className="text-xs text-gray-400">Powered by ethers.js · MetaMask</p>
                   </div>
                 </div>
 
                 {/* Steps indicator */}
-                <div className="flex items-center mb-6">
+                <div className="flex items-center">
                   {[
-                    { label: "Connect Wallet", done: isConnected },
-                    { label: "Switch to Sepolia", done: isConnected && walletChain?.id === sepolia.id },
-                    { label: "Deploy", done: false },
+                    { label: "Connect Wallet",    done: isConnected },
+                    { label: "Switch to Sepolia", done: isConnected && ethChainId === SEPOLIA_CHAIN_ID },
+                    { label: "Deploy",            done: !!deployedAddress },
                   ].map((step, i) => (
                     <div key={step.label} className="flex items-center flex-1">
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${
@@ -1235,39 +1332,41 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
                   ))}
                 </div>
 
-                {/* ── STEP 1: Connect wallet ── */}
-                <div className={`border rounded-2xl overflow-hidden mb-4 ${isConnected ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white shadow-sm"}`}>
+                {/* ── STEP 1: Connect Wallet (ethers.js) ── */}
+                <div className={`border rounded-2xl overflow-hidden ${isConnected ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white shadow-sm"}`}>
                   <div className="px-4 py-3 flex items-center justify-between">
                     <div>
                       <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                         {isConnected ? "Wallet Connected" : "Step 1 · Connect Wallet"}
                       </p>
-                      {isConnected && address && (
+                      {isConnected && (
                         <p className="text-sm font-mono text-emerald-700 mt-0.5">
-                          {address.slice(0, 6)}…{address.slice(-4)}
+                          {ethAddress.slice(0, 6)}…{ethAddress.slice(-4)}
                         </p>
                       )}
                     </div>
                     {isConnected ? (
-                      <button
-                        onClick={() => disconnect()}
-                        className="text-xs text-gray-400 hover:text-red-500 transition-colors"
-                      >
+                      <button onClick={() => { setEthAddress(""); setEthChainId(null); setDeployedAddress(""); setDeployTxHash(""); }}
+                        className="text-xs text-gray-400 hover:text-red-500 transition-colors">
                         Disconnect
                       </button>
                     ) : (
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           setDeployError(null);
-                          const inj = connectors.find((c) => c.id === "injected") ?? connectors[0];
-                          if (!inj) { setDeployError("No wallet detected. Install MetaMask and refresh."); return; }
-                          connect({ connector: inj });
+                          if (!window.ethereum) { setDeployError("MetaMask not found. Install it and refresh."); return; }
+                          try {
+                            const accounts: string[] = await window.ethereum.request({ method: "eth_requestAccounts" });
+                            setEthAddress(accounts[0]);
+                            const chainId: string = await window.ethereum.request({ method: "eth_chainId" });
+                            setEthChainId(parseInt(chainId, 16));
+                          } catch (err: unknown) {
+                            setDeployError(err instanceof Error ? err.message : "Connection rejected.");
+                          }
                         }}
-                        disabled={connectPending}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-bold rounded-lg transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors"
                       >
-                        {connectPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                        {connectPending ? "Connecting…" : "Connect MetaMask"}
+                        🦊 Connect MetaMask
                       </button>
                     )}
                   </div>
@@ -1275,29 +1374,49 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
 
                 {/* ── STEP 2: Switch to Sepolia ── */}
                 {isConnected && (
-                  <div className={`border rounded-2xl overflow-hidden mb-4 ${walletChain?.id === sepolia.id ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white shadow-sm"}`}>
+                  <div className={`border rounded-2xl overflow-hidden ${ethChainId === SEPOLIA_CHAIN_ID ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white shadow-sm"}`}>
                     <div className="px-4 py-3 flex items-center justify-between">
                       <div>
                         <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                          {walletChain?.id === sepolia.id ? "Network: Sepolia Testnet ✓" : "Step 2 · Switch Network"}
+                          {ethChainId === SEPOLIA_CHAIN_ID ? "Network: Sepolia ✓" : "Step 2 · Switch Network"}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {walletChain?.id === sepolia.id
+                          {ethChainId === SEPOLIA_CHAIN_ID
                             ? "Chain ID 11155111 · Ready for deployment"
-                            : `Currently on: ${walletChain?.name ?? "Unknown"}`}
+                            : `Current chain ID: ${ethChainId ?? "unknown"}`}
                         </p>
                       </div>
-                      {walletChain?.id !== sepolia.id && (
+                      {ethChainId !== SEPOLIA_CHAIN_ID && (
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             setDeployError(null);
-                            switchChain({ chainId: sepolia.id });
+                            try {
+                              await window.ethereum.request({
+                                method: "wallet_switchEthereumChain",
+                                params: [{ chainId: "0xaa36a7" }], // Sepolia
+                              });
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              if (msg.includes("4902")) {
+                                // Chain not added yet — add it
+                                await window.ethereum.request({
+                                  method: "wallet_addEthereumChain",
+                                  params: [{
+                                    chainId: "0xaa36a7",
+                                    chainName: "Sepolia Testnet",
+                                    nativeCurrency: { name: "SepoliaETH", symbol: "ETH", decimals: 18 },
+                                    rpcUrls: ["https://rpc.sepolia.org"],
+                                    blockExplorerUrls: ["https://sepolia.etherscan.io"],
+                                  }],
+                                });
+                              } else {
+                                setDeployError(msg);
+                              }
+                            }
                           }}
-                          disabled={switchPending}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-400 hover:bg-amber-500 disabled:bg-gray-200 disabled:text-gray-400 text-black text-xs font-bold rounded-lg transition-colors"
+                          className="px-3 py-1.5 bg-amber-400 hover:bg-amber-500 text-black text-xs font-bold rounded-lg transition-colors"
                         >
-                          {switchPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                          {switchPending ? "Switching…" : "Switch to Sepolia"}
+                          Switch to Sepolia
                         </button>
                       )}
                     </div>
@@ -1306,58 +1425,138 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
 
                 {/* ── Error banner ── */}
                 {deployError && (
-                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-2">
+                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2">
                     <span className="text-red-500 text-sm mt-0.5">✗</span>
                     <p className="text-xs text-red-700">{deployError}</p>
                   </div>
                 )}
 
-                {/* ── Contracts to deploy ── */}
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Contracts to Deploy</p>
-                  {architecture?.contracts.map((c) => (
-                    <div key={c.id} className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-500 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full" style={{ background: c.color }} />
-                        {c.name}
-                      </span>
-                      <span className="font-medium text-gray-700">{c.standard}</span>
-                    </div>
-                  ))}
-                </div>
+                {/* ── Contract selector + Constructor args ── */}
+                {compiled && compileResult && isConnected && ethChainId === SEPOLIA_CHAIN_ID && (
+                  <div className="space-y-3">
+                    {/* Select contract to deploy */}
+                    {Object.keys(compileResult.contracts).length > 1 && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Contract</p>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {Object.keys(compileResult.contracts).map((name) => (
+                            <button key={name} onClick={() => { setSelectedDeployContract(name); setConstructorArgs({}); }}
+                              className={`text-xs px-3 py-1 rounded-lg font-medium transition-colors ${
+                                selectedDeployContract === name ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                              }`}>
+                              {name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                {/* ── STEP 3: Deploy ── */}
-                {isConnected && walletChain?.id === sepolia.id ? (
-                  <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 mb-4">
-                    <p className="text-sm font-bold text-indigo-800 mb-1">Ready to Deploy on Sepolia</p>
-                    <p className="text-xs text-indigo-600 mb-3">
-                      Your wallet is connected and set to Sepolia. To deploy, download the project and run:
-                    </p>
-                    <div className="bg-gray-950 rounded-xl p-3 font-mono text-xs text-emerald-400 mb-3">
-                      <div className="text-gray-500 mb-1"># Install dependencies</div>
-                      <div>npm install</div>
-                      <div className="text-gray-500 mt-2 mb-1"># Add your private key to .env</div>
-                      <div>{"PRIVATE_KEY=0x..."}</div>
-                      <div className="text-gray-500 mt-2 mb-1"># Deploy to Sepolia</div>
-                      <div>npx hardhat run scripts/deploy.js --network sepolia</div>
-                    </div>
+                    {/* Constructor arguments from ABI */}
+                    {(() => {
+                      const abi = compileResult.contracts[selectedDeployContract]?.abi as { type: string; inputs?: { name: string; type: string }[] }[] | undefined;
+                      const ctor = abi?.find((x) => x.type === "constructor");
+                      const inputs = ctor?.inputs ?? [];
+                      return inputs.length > 0 ? (
+                        <div>
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Constructor Arguments</p>
+                          {inputs.map((inp) => (
+                            <div key={inp.name} className="mb-2">
+                              <label className="block text-[11px] text-gray-400 mb-1">
+                                {inp.name} <span className="text-gray-300">({inp.type})</span>
+                              </label>
+                              <input
+                                type="text"
+                                placeholder={inp.type === "address" ? "0x…" : inp.type}
+                                value={constructorArgs[inp.name] ?? ""}
+                                onChange={(e) => setConstructorArgs((p) => ({ ...p, [inp.name]: e.target.value }))}
+                                className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-mono text-gray-900 placeholder-gray-300 focus:outline-none focus:border-indigo-400 transition-colors"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
+
+                    {/* Deploy button */}
                     <button
-                      onClick={() => {
-                        setDownloadCfg((d) => ({ ...d, projectName: d.projectName || projectName, network: "sepolia" }));
-                        setDownloadModal(true);
+                      disabled={deploying || !compileResult.contracts[selectedDeployContract]}
+                      onClick={async () => {
+                        setDeployError(null);
+                        setDeployTxHash("");
+                        setDeployedAddress("");
+                        setDeploying(true);
+                        try {
+                          const { ethers } = await import("ethers");
+                          const provider = new ethers.BrowserProvider(window.ethereum);
+                          const signer   = await provider.getSigner();
+                          const c        = compileResult.contracts[selectedDeployContract];
+                          const abi      = c.abi as { type: string; inputs?: { name: string; type: string }[] }[];
+                          const ctor     = abi.find((x) => x.type === "constructor");
+                          const args     = (ctor?.inputs ?? []).map((inp) => {
+                            const val = constructorArgs[inp.name] ?? "";
+                            if (inp.type === "address" && !val) return ethAddress; // default to deployer
+                            return val;
+                          });
+                          const factory  = new ethers.ContractFactory(abi, c.bytecode, signer);
+                          const contract = await factory.deploy(...args);
+                          setDeployTxHash(contract.deploymentTransaction()?.hash ?? "");
+                          await contract.waitForDeployment();
+                          const addr = await contract.getAddress();
+                          setDeployedAddress(addr);
+                        } catch (err: unknown) {
+                          const msg = err instanceof Error ? err.message : String(err);
+                          if (msg.includes("user rejected") || msg.includes("denied"))
+                            setDeployError("Transaction rejected in MetaMask.");
+                          else
+                            setDeployError(msg.slice(0, 200));
+                        } finally {
+                          setDeploying(false);
+                        }
                       }}
-                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-colors"
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-bold rounded-xl transition-colors"
                     >
-                      <Terminal className="w-4 h-4" /> Download Sepolia Project
+                      {deploying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+                      {deploying ? "Deploying…" : `Deploy ${selectedDeployContract || "Contract"}`}
                     </button>
                   </div>
-                ) : (
-                  <button
-                    disabled
-                    className="w-full flex items-center justify-center gap-2 text-sm font-bold py-3.5 rounded-xl bg-gray-100 text-gray-400 cursor-not-allowed"
-                  >
-                    <Rocket className="w-4 h-4" /> Connect Wallet & Switch to Sepolia First
-                  </button>
+                )}
+
+                {/* ── Deployment result ── */}
+                {deployedAddress && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-emerald-700 font-bold">
+                      <CheckCircle2 className="w-5 h-5" /> Contract Deployed!
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">Contract Address</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-mono text-gray-900 break-all">{deployedAddress}</p>
+                        <button onClick={() => navigator.clipboard.writeText(deployedAddress)}
+                          className="flex-shrink-0"><Copy className="w-3.5 h-3.5 text-gray-400 hover:text-gray-700" /></button>
+                      </div>
+                    </div>
+                    {deployTxHash && (
+                      <div>
+                        <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">Tx Hash</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-mono text-gray-500 truncate">{deployTxHash}</p>
+                          <a href={`https://sepolia.etherscan.io/tx/${deployTxHash}`} target="_blank" rel="noopener noreferrer"
+                            className="flex-shrink-0"><ExternalLink className="w-3.5 h-3.5 text-indigo-500 hover:text-indigo-700" /></a>
+                        </div>
+                      </div>
+                    )}
+                    <a href={`https://sepolia.etherscan.io/address/${deployedAddress}`} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-semibold">
+                      View on Sepolia Etherscan <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
+
+                {/* Not compiled yet + not connected */}
+                {!compiled && !isConnected && (
+                  <div className="text-center py-6">
+                    <p className="text-sm text-gray-400">Complete Compile first, then connect your wallet to deploy.</p>
+                  </div>
                 )}
               </div>
             </div>
