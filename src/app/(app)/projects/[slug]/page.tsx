@@ -1861,10 +1861,30 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
                           });
                           const factory  = new ethers.ContractFactory(abi, c.bytecode, signer);
                           const contract = await factory.deploy(...args);
-                          setDeployTxHash(contract.deploymentTransaction()?.hash ?? "");
+                          const txHash   = contract.deploymentTransaction()?.hash ?? "";
+                          setDeployTxHash(txHash);
                           await contract.waitForDeployment();
                           const addr = await contract.getAddress();
                           setDeployedAddress(addr);
+
+                          // ── Save deployment record to DB ──────────────
+                          try {
+                            await fetch("/api/deployments", {
+                              method:  "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                projectId:       project!.id,
+                                evmChainId:      ethChainId,
+                                contractAddress: addr,
+                                txHash,
+                                deployerAddress: ethAddress,
+                                constructorArgs,
+                                contractAbi:     abi,
+                              }),
+                            });
+                          } catch {
+                            // Non-fatal — deployment is on-chain either way
+                          }
                         } catch (err: unknown) {
                           const msg = err instanceof Error ? err.message : String(err);
                           if (msg.includes("user rejected") || msg.includes("denied"))

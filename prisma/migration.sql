@@ -126,6 +126,9 @@ CREATE TABLE "block67_domain_configs" (
 CREATE UNIQUE INDEX "block67_domain_configs_projectId_key" ON "block67_domain_configs"("projectId");
 CREATE UNIQUE INDEX "block67_domain_configs_domain_key"    ON "block67_domain_configs"("domain");
 
+-- ── contractAbi column (added after initial deploy) ──────────────────────────
+ALTER TABLE "block67_deployments" ADD COLUMN IF NOT EXISTS "contractAbi" JSONB;
+
 -- ── Foreign keys ──────────────────────────────────────────────────────────────
 ALTER TABLE "block67_templates"     ADD CONSTRAINT "block67_templates_authorId_fkey"
     FOREIGN KEY ("authorId")    REFERENCES "block67_users"("id")      ON DELETE RESTRICT ON UPDATE CASCADE;

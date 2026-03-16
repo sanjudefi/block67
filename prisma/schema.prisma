@@ -162,6 +162,7 @@ model Deployment {
   txHash          String?
   deployerAddress String
   constructorArgs Json?
+  contractAbi     Json?            // ABI array stored after successful deployment
   gasUsed         String?
   errorMessage    String?
   deployedAt      DateTime?

@@ -147,9 +147,9 @@ export default function HomePage() {
 
           {/* Headline */}
           <h1 className="text-5xl md:text-6xl lg:text-[4.5rem] font-bold text-gray-900 tracking-tight leading-[1.08] mb-5">
-            Turn your idea into<br />
+            Launch your Web3<br />
             <span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600 bg-clip-text text-transparent">
-              a Web3 project
+              Project in Minutes
             </span>
           </h1>
 
