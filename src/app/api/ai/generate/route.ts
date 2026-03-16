@@ -184,9 +184,38 @@ async function handleDemoMode(req: NextRequest) {
   const descMatch = p.match(/description\s+(?:to\s+)?['"]?(.{10,100})/i);
   if (descMatch) updates.description = descMatch[1].trim();
 
-  const message = Object.keys(updates).length > 0
-    ? `Updated ${Object.keys(updates).join(", ")} based on your request. The live preview has been updated.`
+  // Module suggestions from keywords
+  interface ModSuggestion { contractId: string; moduleId: string; contractName: string; moduleName: string; description: string; }
+  const moduleSuggestions: ModSuggestion[] = [];
+
+  if (p.includes("compound") || p.includes("auto-compound") || p.includes("reinvest")) {
+    moduleSuggestions.push({ contractId: "reward_vault", moduleId: "compound", contractName: "RewardVault", moduleName: "Auto-Compound", description: "Reinvest rewards automatically" });
+  }
+  if (p.includes("anti-whale") || p.includes("antiwhale") || p.includes("whale")) {
+    moduleSuggestions.push({ contractId: "meme_token", moduleId: "whale", contractName: "MemeToken", moduleName: "Anti-Whale", description: "Max wallet percentage limit" });
+  }
+  if (p.includes("multisig") || p.includes("multi-sig") || p.includes("multi sig")) {
+    moduleSuggestions.push({ contractId: "treasury", moduleId: "multisig", contractName: "Treasury", moduleName: "Multi-Sig", description: "Require multiple signers" });
+  }
+  if (p.includes("airdrop")) {
+    moduleSuggestions.push({ contractId: "mint_mgr", moduleId: "airdrop", contractName: "MintManager", moduleName: "Airdrop", description: "Owner batch-mint to wallets" });
+  }
+  if (p.includes("quadratic") || p.includes("quadratic voting")) {
+    moduleSuggestions.push({ contractId: "governor", moduleId: "quadratic", contractName: "Governor", moduleName: "Quadratic Voting", description: "Square-root weighted votes" });
+  }
+  if (p.includes("buyback") || p.includes("buy back") || p.includes("buy-back")) {
+    moduleSuggestions.push({ contractId: "liq_mgr", moduleId: "buyback", contractName: "LiquidityManager", moduleName: "Buyback", description: "Auto buyback & burn tokens" });
+  }
+  if (p.includes("reflections") || p.includes("reflect") || p.includes("passive reward")) {
+    moduleSuggestions.push({ contractId: "tax_mgr", moduleId: "reflections", contractName: "TaxManager", moduleName: "Reflections", description: "Passive rewards for all holders" });
+  }
+  if (p.includes("boost") || p.includes("nft boost") || p.includes("nft staking")) {
+    moduleSuggestions.push({ contractId: "reward_vault", moduleId: "nft_boost", contractName: "RewardVault", moduleName: "NFT Boost", description: "NFT holders earn bonus APY" });
+  }
+
+  const message = Object.keys(updates).length > 0 || moduleSuggestions.length > 0
+    ? `Updated ${[...Object.keys(updates), ...moduleSuggestions.map((s) => s.moduleName)].join(", ")} based on your request.`
     : "I understood your request! To enable full AI generation, add your ANTHROPIC_API_KEY to the environment. For now, try specific keywords like colors (purple, orange), numbers, or put names in quotes.";
 
-  return NextResponse.json({ config: updates, message });
+  return NextResponse.json({ config: updates, message, moduleSuggestions });
 }
