@@ -3,50 +3,53 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-// ── Rotating placeholder prompts ───────────────────────────────────────────
+// ── Rotating prompts (founder-voice) ─────────────────────────────────────────
 const ROTATING_PROMPTS = [
-  "A DeFi staking platform with auto-compound rewards...",
-  "An ERC-20 token for my gaming ecosystem...",
-  "An NFT collection with on-chain metadata and royalties...",
-  "A DAO governance system with quadratic voting...",
-  "A blockchain analytics dashboard with Alchemy event listeners...",
-  "A token-gated community portal with NFT verification...",
-  "An NFT marketplace with creator royalties and auctions...",
-  "A DeFi lending protocol with liquidation protection...",
+  "Launch a meme coin called PepeCoin with 1B supply and 2% tax...",
+  "Deploy an NFT collection with 10,000 items and 0.05 ETH mint price...",
+  "Create a DAO governance token with on-chain voting and treasury...",
+  "Build a staking platform with 18% APY and flexible lock periods...",
+  "Launch a tokenized real estate fund with ERC-20 shares...",
+  "Create a play-to-earn gaming token with burn mechanics...",
+  "Deploy a DeFi yield farm with auto-compound rewards...",
+  "Build a token-gated community with NFT membership passes...",
 ];
 
-// ── Suggestion chips ────────────────────────────────────────────────────────
-const SUGGESTIONS = [
-  { label: "ERC-20 Token",          prompt: "Deploy an ERC-20 token with custom name, symbol, supply and minting rules" },
-  { label: "NFT Collection",        prompt: "Create an ERC-721 NFT collection with metadata, minting and royalties" },
-  { label: "DAO Governance",        prompt: "Build a DAO with on-chain voting, proposals and a multi-sig treasury" },
-  { label: "DeFi Protocol",         prompt: "Build a DeFi staking platform with reward distribution and auto-compound" },
-  { label: "Gaming Platform",       prompt: "Create a blockchain gaming platform with NFT items and on-chain achievements" },
-  { label: "Reporting Dashboard",   prompt: "Set up a blockchain reporting dashboard using Alchemy API event listeners" },
-  { label: "Event Listeners",       prompt: "Configure Alchemy API webhooks to listen for smart contract events in real time" },
-  { label: "Onboarding Portal",     prompt: "Build a Web3 onboarding portal with wallet connect and token-gated access" },
-  { label: "Token Airdrop",         prompt: "Create a Merkle tree airdrop system for distributing tokens to a whitelist" },
-  { label: "NFT Marketplace",       prompt: "Deploy an NFT marketplace with listings, offers, and royalty splits" },
-  { label: "Networking App",        prompt: "Build a Web3 professional networking app with on-chain reputation and NFT badges" },
-  { label: "Multisig Wallet",       prompt: "Create a multisig wallet with configurable signers and threshold approvals" },
+// ── Launch scenario chips ─────────────────────────────────────────────────────
+const LAUNCH_SCENARIOS = [
+  { emoji: "🚀", label: "Meme Coin",          prompt: "Launch a meme coin with 1 billion supply, 2% buy/sell tax and staking rewards" },
+  { emoji: "🖼",  label: "NFT Collection",     prompt: "Create an ERC-721 NFT collection with 10,000 supply, whitelist minting and royalties" },
+  { emoji: "🏛",  label: "DAO Governance",     prompt: "Build a DAO with on-chain voting, proposals, timelock and multi-sig treasury" },
+  { emoji: "💰",  label: "Staking Platform",   prompt: "Build a DeFi staking platform with 18% APY, reward distribution and flexible lock periods" },
+  { emoji: "📊",  label: "Tokenized Fund",     prompt: "Create a tokenized investment fund with ERC-20 shares and on-chain accounting" },
+  { emoji: "🏠",  label: "Real Estate Token",  prompt: "Deploy a tokenized real estate asset with fractional ownership and yield distribution" },
+  { emoji: "🎮",  label: "Gaming Token",       prompt: "Create a play-to-earn gaming token with NFT items, burn mechanics and leaderboard rewards" },
+  { emoji: "🔐",  label: "Multisig Wallet",    prompt: "Deploy a multi-sig treasury with configurable signers, threshold approvals and spending limits" },
 ];
 
-// ── Feature pills ────────────────────────────────────────────────────────────
-const FEATURES = [
-  "Smart contract deployment",
-  "ABI code integration",
-  "Alchemy API & event listeners",
-  "Claude AI backend",
-  "Auto-generated dashboards",
-  "Free subdomain",
-  "12+ EVM chains",
+// ── How it works steps ────────────────────────────────────────────────────────
+const HOW_IT_WORKS = [
+  { step: "01", title: "Describe your project", body: "Tell us what you want to launch — token, NFT, DAO, or DeFi protocol. Plain English, no code required." },
+  { step: "02", title: "AI generates contracts", body: "Block67 generates production-grade Solidity contracts with OpenZeppelin security standards, compiled and verified." },
+  { step: "03", title: "Deploy to blockchain", body: "Connect MetaMask and deploy to Ethereum, Base, Polygon or any EVM chain in one click." },
+  { step: "04", title: "Launch your app",       body: "Your Web3 frontend goes live instantly with a free subdomain — shareable in seconds." },
+];
+
+// ── Why Block67 bullets ───────────────────────────────────────────────────────
+const WHY_BULLETS = [
+  { icon: "✓", text: "No Solidity knowledge needed" },
+  { icon: "✓", text: "Upgradeable proxy contracts supported" },
+  { icon: "✓", text: "One-click MetaMask deployment" },
+  { icon: "✓", text: "Full Web3 frontend included" },
+  { icon: "✓", text: "Free subdomain on every project" },
+  { icon: "✓", text: "12+ EVM chains supported" },
 ];
 
 export default function HomePage() {
   const router = useRouter();
-  const [prompt, setPrompt]             = useState("");
+  const [prompt, setPrompt]                 = useState("");
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
-  const [visible, setVisible]           = useState(true);
+  const [visible, setVisible]               = useState(true);
 
   // Cycle rotating placeholder
   useEffect(() => {
@@ -55,111 +58,193 @@ export default function HomePage() {
       setTimeout(() => {
         setPlaceholderIdx((i) => (i + 1) % ROTATING_PROMPTS.length);
         setVisible(true);
-      }, 350);
+      }, 300);
     }, 3500);
     return () => clearInterval(id);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prompt.trim()) return;
-    router.push(`/signup?prompt=${encodeURIComponent(prompt.trim())}`);
+  const handleSubmit = (p?: string) => {
+    const text = (p ?? prompt).trim();
+    if (!text) return;
+    router.push(`/signup?prompt=${encodeURIComponent(text)}`);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-56px)] px-4 pb-16 pt-8">
+    <div className="min-h-[calc(100vh-56px)] flex flex-col">
 
-      {/* ── Badge ──────────────────────────────────────────────────────────── */}
-      <div className="inline-flex items-center gap-2 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 px-3.5 py-1.5 rounded-full mb-8">
-        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-        Exclusively for blockchain applications · Powered by Claude AI
-      </div>
+      {/* ════════════════════════════════════════════════════════════════════
+          HERO
+      ════════════════════════════════════════════════════════════════════ */}
+      <section className="flex flex-col items-center justify-center px-4 pt-20 pb-16 text-center">
 
-      {/* ── Headline ───────────────────────────────────────────────────────── */}
-      <h1 className="text-5xl md:text-6xl lg:text-[4.5rem] font-bold text-gray-900 text-center tracking-tight leading-[1.08] mb-4 max-w-3xl">
-        Build any blockchain<br />app with AI
-      </h1>
-      <p className="text-lg text-gray-400 text-center mb-10 max-w-lg leading-relaxed">
-        Describe what you want to build. We handle the smart contracts,
-        dashboards, and give you a free subdomain.
-      </p>
+        {/* Badge */}
+        <div className="inline-flex items-center gap-2 text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-4 py-1.5 rounded-full mb-8 tracking-wide">
+          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+          Powered by Claude AI · Solidity 0.8.20 · OpenZeppelin v5
+        </div>
 
-      {/* ── Prompt box ─────────────────────────────────────────────────────── */}
-      <form onSubmit={handleSubmit} className="w-full max-w-2xl">
-        <div className="relative bg-white border border-gray-200 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.07)] focus-within:border-indigo-300 focus-within:shadow-[0_4px_24px_rgba(99,102,241,0.12)] transition-all duration-200">
+        {/* Headline */}
+        <h1 className="text-5xl md:text-6xl lg:text-[4.75rem] font-bold text-gray-900 tracking-tight leading-[1.07] mb-5 max-w-3xl">
+          Launch your crypto<br />
+          <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+            project in minutes
+          </span>
+        </h1>
 
-          {/* Animated placeholder overlay */}
-          {!prompt && (
-            <div
-              className="absolute top-4 left-5 right-24 text-gray-400 text-base leading-relaxed pointer-events-none select-none transition-opacity duration-300"
-              style={{ opacity: visible ? 1 : 0 }}
-            >
-              {ROTATING_PROMPTS[placeholderIdx]}
-            </div>
-          )}
+        <p className="text-lg md:text-xl text-gray-500 max-w-xl leading-relaxed mb-10">
+          Generate smart contracts, deploy tokens, and launch Web3 apps
+          instantly — no Solidity experience required.
+        </p>
 
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit(e as unknown as React.FormEvent);
-              }
-            }}
-            rows={3}
-            className="w-full bg-transparent text-gray-900 text-base px-5 pt-4 pb-14 rounded-2xl outline-none resize-none"
-            placeholder=""
-            aria-label="Describe your blockchain application"
-          />
+        {/* ── Prompt box ────────────────────────────────────────────────── */}
+        <div className="w-full max-w-2xl">
+          <div className="relative bg-white border border-gray-200 rounded-2xl shadow-[0_4px_32px_rgba(0,0,0,0.07)] focus-within:border-indigo-300 focus-within:shadow-[0_4px_32px_rgba(99,102,241,0.12)] transition-all duration-200">
 
-          {/* Bottom bar */}
-          <div className="absolute bottom-3 left-4 right-3 flex items-center justify-between">
-            <span className="text-xs text-gray-300 hidden sm:block">
-              Blockchain apps only — smart contracts, NFTs, DeFi, DAOs
-            </span>
-            <div className="flex items-center gap-2 ml-auto">
-              <span className="text-xs text-gray-300 hidden sm:block">↵ Enter</span>
-              <button
-                type="submit"
-                disabled={!prompt.trim()}
-                className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-100 disabled:text-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2 rounded-xl transition-all"
+            {/* Animated placeholder */}
+            {!prompt && (
+              <div
+                className="absolute top-4 left-5 right-32 text-gray-400 text-base leading-relaxed pointer-events-none select-none transition-opacity duration-300"
+                style={{ opacity: visible ? 1 : 0 }}
               >
-                Build →
-              </button>
+                {ROTATING_PROMPTS[placeholderIdx]}
+              </div>
+            )}
+
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
+              rows={3}
+              className="w-full bg-transparent text-gray-900 text-base px-5 pt-4 pb-16 rounded-2xl outline-none resize-none"
+              placeholder=""
+              aria-label="Describe the crypto project you want to launch"
+            />
+
+            <div className="absolute bottom-3 left-4 right-3 flex items-center justify-between">
+              <span className="text-xs text-gray-300 hidden sm:block">
+                Tokens · NFTs · DAOs · DeFi · Staking
+              </span>
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="text-xs text-gray-300 hidden sm:block">↵ to launch</span>
+                <button
+                  onClick={() => handleSubmit()}
+                  disabled={!prompt.trim()}
+                  className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-100 disabled:text-gray-300 disabled:cursor-not-allowed text-white text-sm font-bold px-5 py-2 rounded-xl transition-all"
+                >
+                  Start Launching →
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </form>
 
-      {/* ── Feature pills ──────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap justify-center gap-x-5 gap-y-1.5 mt-5 max-w-2xl">
-        {FEATURES.map((f) => (
-          <span key={f} className="flex items-center gap-1.5 text-xs text-gray-400">
-            <span className="w-1 h-1 rounded-full bg-gray-300" />
-            {f}
-          </span>
-        ))}
-      </div>
-
-      {/* ── Suggestion chips ───────────────────────────────────────────────── */}
-      <div className="mt-12 w-full max-w-2xl">
-        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.1em] text-center mb-4">
-          Not sure where to start? Try one of these:
+        {/* Speed tagline */}
+        <p className="mt-5 text-sm font-medium text-gray-400">
+          From idea →{" "}
+          <span className="text-indigo-600 font-semibold">blockchain launch in under 5 minutes</span>
         </p>
-        <div className="flex flex-wrap justify-center gap-2">
-          {SUGGESTIONS.map((s) => (
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          LAUNCH SCENARIOS
+      ════════════════════════════════════════════════════════════════════ */}
+      <section className="px-4 pb-20 max-w-4xl mx-auto w-full">
+        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.12em] text-center mb-5">
+          What do you want to launch?
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {LAUNCH_SCENARIOS.map((s) => (
             <button
               key={s.label}
-              type="button"
-              onClick={() => setPrompt(s.prompt)}
-              className="bg-gray-50 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-200 text-gray-600 hover:text-indigo-700 text-sm px-4 py-1.5 rounded-full transition-all duration-150 cursor-pointer"
+              onClick={() => handleSubmit(s.prompt)}
+              className="group flex flex-col items-center gap-2 bg-white hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300 rounded-xl px-3 py-4 transition-all duration-150 text-left"
             >
-              {s.label}
+              <span className="text-2xl">{s.emoji}</span>
+              <span className="text-xs font-semibold text-gray-700 group-hover:text-indigo-700 text-center leading-tight">{s.label}</span>
             </button>
           ))}
         </div>
-      </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          HOW IT WORKS
+      ════════════════════════════════════════════════════════════════════ */}
+      <section className="bg-gray-50 border-y border-gray-100 px-4 py-20">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 text-center mb-3">
+            How it works
+          </h2>
+          <p className="text-gray-500 text-center mb-12 max-w-md mx-auto">
+            Block67 handles the hard parts — you focus on launching.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {HOW_IT_WORKS.map((step) => (
+              <div key={step.step} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-xs font-bold mb-4">
+                  {step.step}
+                </div>
+                <h3 className="font-bold text-gray-900 text-sm mb-1.5">{step.title}</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">{step.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          WHY FOUNDERS USE BLOCK67  +  FINAL CTA
+      ════════════════════════════════════════════════════════════════════ */}
+      <section className="px-4 py-20 max-w-4xl mx-auto w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+
+          {/* Left — value props */}
+          <div>
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
+              Built for founders<br />and developers
+            </h2>
+            <p className="text-gray-500 text-sm leading-relaxed mb-7">
+              Whether you&apos;re launching your first token or building a full
+              DeFi protocol, Block67 generates production-grade contracts with
+              OpenZeppelin security — and deploys them in one click.
+            </p>
+            <ul className="space-y-2.5">
+              {WHY_BULLETS.map((b) => (
+                <li key={b.text} className="flex items-center gap-2.5 text-sm text-gray-700">
+                  <span className="w-5 h-5 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">
+                    {b.icon}
+                  </span>
+                  {b.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Right — CTA card */}
+          <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-8 text-white text-center shadow-xl">
+            <div className="text-4xl mb-4">⚡</div>
+            <h3 className="text-xl font-bold mb-2">Ready to launch?</h3>
+            <p className="text-indigo-200 text-sm mb-6 leading-relaxed">
+              Join founders shipping crypto projects on Block67.
+              No credit card required.
+            </p>
+            <button
+              onClick={() => router.push("/signup")}
+              className="w-full bg-white text-indigo-700 font-bold py-3 rounded-xl hover:bg-indigo-50 transition-colors text-sm"
+            >
+              Start Launching Free →
+            </button>
+            <p className="mt-4 text-indigo-300 text-xs">
+              Vercel for crypto projects.
+            </p>
+          </div>
+        </div>
+      </section>
+
     </div>
   );
 }

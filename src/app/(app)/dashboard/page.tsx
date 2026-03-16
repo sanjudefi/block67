@@ -36,8 +36,8 @@ interface Project {
 }
 
 const CHIPS = [
-  "ERC-20 Token", "NFT Collection", "DAO Governance",
-  "Staking Platform", "Meme Coin", "Token Landing Page",
+  "Meme Coin", "NFT Collection", "DAO Governance",
+  "Staking Platform", "ERC-20 Token", "Tokenized Fund",
 ];
 
 const DID_YOU_KNOW = [
@@ -104,18 +104,22 @@ export default function DashboardPage() {
       <div className="max-w-[720px] mx-auto px-4 pt-14 pb-28">
 
         {/* ── Greeting ────────────────────────────────────────────────── */}
-        <p className="text-center text-sm text-gray-400 mb-4">
+        <p className="text-center text-sm text-gray-400 mb-3">
           Welcome back, {firstName} 👋
         </p>
 
         {/* ── Hero heading ────────────────────────────────────────────── */}
         <h1 className="text-[2.6rem] font-bold text-gray-900 text-center leading-tight mb-2 tracking-tight">
-          What will you build next?
+          What will you{" "}
+          <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+            launch
+          </span>{" "}
+          next?
         </h1>
         <p className="text-gray-500 text-center mb-8 text-[15px]">
-          Describe your Web3 app or get inspired by our{" "}
+          Describe your crypto project — AI generates smart contracts and deploys to blockchain.{" "}
           <Link href="/templates" className="text-indigo-600 hover:underline underline-offset-2">
-            templates
+            Browse templates →
           </Link>
         </p>
 
@@ -126,7 +130,7 @@ export default function DashboardPage() {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleBuild(); } }}
-            placeholder="Create a meme token called PepeCoin with 420 trillion supply and 2% buy tax..."
+            placeholder="Launch a meme coin called PepeCoin with 1B supply, 2% tax and staking rewards..."
             rows={3}
             disabled={building}
             className="w-full resize-none text-gray-900 text-sm leading-relaxed outline-none placeholder-gray-400 disabled:opacity-50 mb-3"
@@ -159,13 +163,15 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── More chips row ──────────────────────────────────────────── */}
+        {/* ── Quick-launch row ────────────────────────────────────────── */}
         <div className="flex flex-wrap gap-2 justify-center mb-10">
           {[
-            { label: "🚀 Launch a meme coin", p: "Create a viral meme coin going to the moon" },
-            { label: "🖼️ NFT mint page",      p: "Create an NFT collection with 10,000 supply and 0.05 ETH mint price" },
-            { label: "🏛️ DAO platform",       p: "Build a DAO governance system with on-chain voting and treasury" },
-            { label: "⚡ Staking rewards",    p: "Create a staking platform with 18% APY and flexible lock periods" },
+            { label: "🚀 Meme Coin",         p: "Launch a meme coin with 1 billion supply, 2% buy/sell tax and staking rewards" },
+            { label: "🖼 NFT Collection",    p: "Create an ERC-721 NFT collection with 10,000 supply and 0.05 ETH mint price" },
+            { label: "🏛 DAO Governance",    p: "Build a DAO with on-chain voting, proposals, timelock and multi-sig treasury" },
+            { label: "💰 Staking Platform",  p: "Create a staking platform with 18% APY and flexible lock periods" },
+            { label: "🔐 Multisig Wallet",   p: "Deploy a multi-sig wallet with 3-of-5 signers and spending limits" },
+            { label: "📊 Tokenized Fund",    p: "Create a tokenized investment fund with ERC-20 shares and yield distribution" },
           ].map(({ label, p }) => (
             <button
               key={label}
@@ -189,7 +195,7 @@ export default function DashboardPage() {
                   : "border-transparent text-gray-400 hover:text-gray-700"
               }`}
             >
-              {tab === "recent" ? "Recent apps" : "Templates"}
+              {tab === "recent" ? "My launches" : "Templates"}
             </button>
           ))}
           {activeTab === "recent" && projects.length > 0 && (
@@ -210,7 +216,7 @@ export default function DashboardPage() {
               ? (
                 <div className="col-span-2 text-center py-16 text-gray-400 text-sm">
                   <p className="mb-2 text-2xl">🚀</p>
-                  No projects yet. Describe your first Web3 app above!
+                  No launches yet. Describe your first crypto project above!
                 </div>
               )
               : projects.map((project) => {
