@@ -12,7 +12,7 @@ import {
   Monitor, Tablet, Smartphone, Settings2, ChevronDown,
   Send, Mic, RefreshCw, Eye, Sliders, CircuitBoard,
   CheckCircle2, Loader2, Layers, Terminal,
-  ChevronRight, MessageSquare, Copy, ExternalLink,
+  ChevronRight, MessageSquare, Copy, ExternalLink, FolderDown,
 } from "lucide-react";
 import { TemplatePreview } from "@/lib/templates/previews";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
@@ -651,6 +651,14 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
           {saved   ? <><Check className="w-3.5 h-3.5 text-emerald-500" /><span className="text-emerald-600">Saved</span></>
            : saving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving…</>
            : <><Save className="w-3.5 h-3.5" />Save</>}
+        </button>
+
+        <button
+          onClick={() => setDownloadModal(true)}
+          className="hidden sm:flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 px-2 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+        >
+          <FolderDown className="w-3.5 h-3.5" />
+          Download
         </button>
 
         {/* AI Chat toggle — mobile only */}
@@ -1668,9 +1676,9 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
                     onChange={(e) => setDownloadCfg((d) => ({ ...d, solidityVersion: e.target.value }))}
                     className="w-full border border-gray-200 focus:border-indigo-400 text-gray-900 text-sm rounded-xl px-3 py-2.5 outline-none bg-white"
                   >
-                    <option value="0.8.20">0.8.20</option>
-                    <option value="0.8.19">0.8.19</option>
-                    <option value="0.8.24">0.8.24</option>
+                    {SOLIDITY_VERSIONS.map((v) => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
