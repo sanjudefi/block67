@@ -1,15 +1,18 @@
 // Admin layout — server-side role guard + sidebar
 export const dynamic = "force-dynamic";
 
-import { headers }    from "next/headers";
-import { NextRequest } from "next/server";
+import { cookies }    from "next/headers";
 import { getToken }   from "next-auth/jwt";
 import { redirect }   from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = cookies();
   const token = await getToken({
-    req:    new NextRequest("http://n", { headers: headers() }),
+    req: {
+      cookies: Object.fromEntries(cookieStore.getAll().map((c) => [c.name, c.value])),
+      headers: { cookie: cookieStore.toString() },
+    } as Parameters<typeof getToken>[0]["req"],
     secret: process.env.NEXTAUTH_SECRET,
   });
 

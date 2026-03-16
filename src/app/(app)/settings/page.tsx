@@ -1,13 +1,21 @@
 export const dynamic = "force-dynamic";
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/config";
-import { db } from "@/lib/db";
+import { cookies }  from "next/headers";
+import { getToken } from "next-auth/jwt";
+import { db }       from "@/lib/db";
 import { SettingsClient } from "./SettingsClient";
 
 export default async function SettingsPage() {
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
+  const cookieStore = cookies();
+  const token = await getToken({
+    req: {
+      cookies: Object.fromEntries(cookieStore.getAll().map((c) => [c.name, c.value])),
+      headers: { cookie: cookieStore.toString() },
+    } as Parameters<typeof getToken>[0]["req"],
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+
+  const userId = token?.sub ?? null;
 
   const user = userId
     ? await db.user.findUnique({

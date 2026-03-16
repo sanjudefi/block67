@@ -2,18 +2,22 @@
 export const dynamic = "force-dynamic";
 
 import { Suspense }           from "react";
-import { headers }            from "next/headers";
-import { NextRequest }        from "next/server";
+import { cookies }            from "next/headers";
 import { getToken }           from "next-auth/jwt";
 import { db }                 from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import BuilderClient          from "./builder-client";
 
 export default async function BuilderPage({ params }: { params: { slug: string } }) {
+  const cookieStore = cookies();
   const token = await getToken({
-    req:    new NextRequest("http://n", { headers: headers() }),
+    req: {
+      cookies: Object.fromEntries(cookieStore.getAll().map((c) => [c.name, c.value])),
+      headers: { cookie: cookieStore.toString() },
+    } as Parameters<typeof getToken>[0]["req"],
     secret: process.env.NEXTAUTH_SECRET,
   });
+
   if (!token?.sub) {
     redirect(`/login?callbackUrl=/projects/${encodeURIComponent(params.slug)}`);
   }
@@ -25,7 +29,6 @@ export default async function BuilderPage({ params }: { params: { slug: string }
 
   if (!project) notFound();
 
-  // Normalise Prisma JSON → plain object expected by the builder
   const initialProject = {
     id:          project.id,
     name:        project.name,
