@@ -10,8 +10,8 @@ import {
   ArrowLeft, Zap, Globe, Rocket, Save, Check, X,
   Monitor, Tablet, Smartphone, Settings2, ChevronDown,
   Send, Mic, RefreshCw, Eye, Sliders, CircuitBoard,
-  CheckCircle2, Loader2, Layers, Terminal, ToggleLeft,
-  ToggleRight, Code2, ChevronRight,
+  CheckCircle2, Loader2, Layers, Terminal,
+  ChevronRight, MessageSquare,
 } from "lucide-react";
 import { TemplatePreview } from "@/lib/templates/previews";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
@@ -248,6 +248,7 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
 
   const [tab, setTab]               = useState<BuilderTab>("architecture");
   const [viewMode, setViewMode]     = useState<ViewMode>("desktop");
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
 
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
@@ -557,6 +558,14 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
            : <><Save className="w-3.5 h-3.5" />Save</>}
         </button>
 
+        {/* AI Chat toggle — mobile only */}
+        <button
+          onClick={() => setMobileChatOpen(true)}
+          className="sm:hidden flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 transition-colors"
+        >
+          <MessageSquare className="w-3.5 h-3.5" /> AI Chat
+        </button>
+
         {project?.status === "ACTIVE" ? (
           <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Live
@@ -577,7 +586,7 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
           {TABS.map(({ id, icon: Icon, label, sub }) => (
             <button
               key={id}
-              onClick={() => setTab(id)}
+              onClick={() => { setTab(id); setMobileChatOpen(false); }}
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all group flex-shrink-0 ${
                 tab === id
                   ? "border-indigo-600 text-indigo-600"
@@ -624,8 +633,40 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
       {/* ── Body ─────────────────────────────────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden">
 
+        {/* Mobile backdrop */}
+        {mobileChatOpen && (
+          <div
+            className="sm:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+            onClick={() => setMobileChatOpen(false)}
+          />
+        )}
+
         {/* ── Left: AI chat ─────────────────────────────────────────────── */}
-        <div className="w-[320px] xl:w-[360px] flex-shrink-0 border-r border-gray-100 bg-white flex flex-col">
+        <div className={[
+          "flex-shrink-0 border-r border-gray-100 bg-white flex flex-col",
+          // Desktop: always-visible side panel
+          "sm:w-[320px] xl:w-[360px] sm:relative sm:z-auto sm:translate-y-0 sm:rounded-none sm:shadow-none sm:h-auto",
+          // Mobile: bottom sheet overlay
+          "fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl shadow-2xl transition-transform duration-300 ease-in-out",
+          mobileChatOpen ? "translate-y-0" : "translate-y-full sm:translate-y-0",
+        ].join(" ")} style={{ height: mobileChatOpen ? "80vh" : undefined }}>
+
+          {/* Mobile header bar */}
+          <div className="sm:hidden flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-md bg-indigo-600 flex items-center justify-center">
+                <Zap className="w-3 h-3 text-white" />
+              </div>
+              <span className="text-sm font-bold text-gray-900">AI Chat</span>
+            </div>
+            <button
+              onClick={() => setMobileChatOpen(false)}
+              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
             {/* Welcome */}
@@ -844,7 +885,7 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
                     <p className="text-xs text-gray-400">{template?.name} · {architecture.contracts.length} contract{architecture.contracts.length !== 1 ? "s" : ""}</p>
                   </div>
                   <button
-                    onClick={() => { setTab("compile"); }}
+                    onClick={() => { setTab("compile"); setMobileChatOpen(false); }}
                     className="flex items-center gap-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors"
                   >
                     <Terminal className="w-3.5 h-3.5" /> Compile →
@@ -1201,7 +1242,6 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
                     width: VIEW_W[viewMode],
                     minHeight: "560px",
                     maxWidth: "100%",
-                    minWidth: viewMode === "desktop" ? "820px" : undefined,
                     height: viewMode === "mobile" ? "780px" : undefined,
                   }}
                 >

@@ -246,7 +246,7 @@ export default function DashboardPage() {
                         <div className="relative" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => setOpenMenu(openMenu === project.id ? null : project.id)}
-                            className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
+                            className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
                           >
                             <MoreHorizontal className="w-4 h-4" />
                           </button>
