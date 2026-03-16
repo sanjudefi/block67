@@ -10,7 +10,8 @@ import { db as prisma } from "@/lib/db/index";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Zap, Globe, ShieldCheck, ExternalLink, Copy } from "lucide-react";
+import { Zap, Globe, ShieldCheck, ExternalLink } from "lucide-react";
+import { CopyButton } from "./CopyButton";
 
 // ── Metadata ──────────────────────────────────────────────────────────────────
 export async function generateMetadata(
@@ -194,22 +195,6 @@ function explorerLink(chainId: number, address: string): string {
   };
   const base = explorers[chainId] ?? "https://etherscan.io/address/";
   return `${base}${address}`;
-}
-
-// ── Client island: copy button ────────────────────────────────────────────────
-"use client";
-import { useState } from "react";
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-      className="text-gray-400 hover:text-indigo-600 transition-colors flex-shrink-0"
-    >
-      {copied ? <span className="text-[11px] text-emerald-600 font-medium">Copied!</span> : <Copy className="w-3.5 h-3.5" />}
-    </button>
-  );
 }
 
 // ── Token detail rows ─────────────────────────────────────────────────────────
