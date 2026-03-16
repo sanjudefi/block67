@@ -1,21 +1,25 @@
 // Server Component — fetches project from DB and passes it to the builder UI
 export const dynamic = "force-dynamic";
 
-import { Suspense }          from "react";
-import { getServerSession }  from "next-auth";
-import { authOptions }       from "@/lib/auth/config";
-import { db }                from "@/lib/db";
+import { Suspense }           from "react";
+import { headers }            from "next/headers";
+import { NextRequest }        from "next/server";
+import { getToken }           from "next-auth/jwt";
+import { db }                 from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
-import BuilderClient         from "./builder-client";
+import BuilderClient          from "./builder-client";
 
 export default async function BuilderPage({ params }: { params: { slug: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
+  const token = await getToken({
+    req:    new NextRequest("http://n", { headers: headers() }),
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+  if (!token?.sub) {
     redirect(`/login?callbackUrl=/projects/${encodeURIComponent(params.slug)}`);
   }
 
   const project = await db.project.findFirst({
-    where:   { slug: params.slug, ownerId: session.user.id },
+    where:   { slug: params.slug, ownerId: token.sub },
     include: { deployments: { orderBy: { createdAt: "desc" }, take: 1 } },
   });
 
