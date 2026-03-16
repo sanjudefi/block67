@@ -1105,7 +1105,40 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
             <div ref={chatEndRef} />
           </div>
 
-          {/* Quick config accordion */}
+          {/* ── Feature toggles (boolean params) ── shown above config, prominent */}
+          {template && template.params.some((p) => p.type === "boolean") && (
+            <div className="border-t border-gray-100 px-4 pt-3 pb-2">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Features</p>
+              <div className="flex flex-wrap gap-2">
+                {template.params.filter((p) => p.type === "boolean").map((param) => {
+                  const on = config[param.key] === "true";
+                  return (
+                    <button
+                      key={param.key}
+                      onClick={() => {
+                        const nc = { ...config, [param.key]: on ? "false" : "true" };
+                        setConfig(nc);
+                        flashPreview(on ? `${param.label} disabled` : `${param.label} enabled`);
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                        on
+                          ? "bg-emerald-50 border-emerald-300 text-emerald-700 shadow-sm"
+                          : "bg-gray-50 border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600"
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${on ? "bg-emerald-500" : "bg-gray-300"}`} />
+                      {param.label}
+                      <span className={`text-[10px] font-bold ml-0.5 ${on ? "text-emerald-500" : "text-gray-300"}`}>
+                        {on ? "ON" : "OFF"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Quick config accordion — text / color params only */}
           <div className="border-t border-gray-100 px-4 py-2">
             <button
               onClick={() => setShowConfigPanel(!showConfigPanel)}
@@ -1118,17 +1151,10 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
             </button>
             {showConfigPanel && template && (
               <div className="space-y-2 pb-2 max-h-52 overflow-y-auto">
-                {template.params.filter((p) => p.type !== "select").map((param) => (
+                {template.params.filter((p) => p.type !== "select" && p.type !== "boolean").map((param) => (
                   <div key={param.key}>
                     <label className="block text-[10px] text-gray-400 mb-0.5 uppercase tracking-wide">{param.label}</label>
-                    {param.type === "boolean" ? (
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={config[param.key] === "true"}
-                          onChange={(e) => { const nc = { ...config, [param.key]: e.target.checked ? "true" : "false" }; setConfig(nc); flashPreview("Config updated"); }}
-                          className="rounded" />
-                        <span className="text-xs text-gray-500">{config[param.key] === "true" ? "Enabled" : "Disabled"}</span>
-                      </label>
-                    ) : param.type === "color" ? (
+                    {param.type === "color" ? (
                       <div className="flex items-center gap-2">
                         <input type="color" value={config[param.key] || "#6366f1"}
                           onChange={(e) => { const nc = { ...config, [param.key]: e.target.value }; setConfig(nc); flashPreview("Color updated"); }}
