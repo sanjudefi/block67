@@ -340,9 +340,11 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
   const [moduleStates, setModuleStates] = useState<Record<string, boolean>>({});
 
   // Compile state
-  const [compiling, setCompiling]     = useState(false);
-  const [compileLogs, setCompileLogs] = useState<string[]>([]);
-  const [compiled, setCompiled]       = useState(false);
+  const [compiling, setCompiling]         = useState(false);
+  const [compileLogs, setCompileLogs]     = useState<string[]>([]);
+  const [compiled, setCompiled]           = useState(false);
+  const [compileFailed, setCompileFailed] = useState(false);
+  const [compileErrors, setCompileErrors] = useState<string[]>([]);
   const [solidityVersion, setSolidityVersion] = useState<string>(DEFAULT_SOLIDITY_VERSION);
   const [soliditySource, setSoliditySource]   = useState("");
   const [compileResult, setCompileResult]     = useState<{
@@ -522,6 +524,8 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
     if (!project) return;
     setCompiling(true);
     setCompiled(false);
+    setCompileFailed(false);
+    setCompileErrors([]);
     setCompileLogs([]);
     setCompileResult(null);
     const logs: string[] = [];
@@ -557,8 +561,11 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
       for (const w of result.warnings ?? []) addLog(`⚠ ${w.split("\n")[0]}`);
 
       if (!result.success || !result.contracts) {
-        for (const e of result.errors ?? []) addLog(`✗ ${e.split("\n").slice(0, 2).join(" | ")}`);
-        addLog(`✗ Compilation failed · ${(result.errors ?? []).length} error(s)`);
+        const errs = result.errors ?? [];
+        for (const e of errs) addLog(`✗ ${e.split("\n").slice(0, 2).join(" | ")}`);
+        addLog(`✗ Compilation failed · ${errs.length} error(s)`);
+        setCompileErrors(errs);
+        setCompileFailed(true);
         setCompiling(false);
         return;
       }
@@ -578,6 +585,99 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
       setCompiled(true);
     } catch (err: unknown) {
       addLog(`✗ ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setCompiling(false);
+    }
+  }
+
+  // ── Auto-fix and retry compilation ───────────────────────────────────────
+  async function handleFixAndRetry() {
+    if (!soliditySource) { handleCompile(); return; }
+    setCompileFailed(false);
+    setCompileErrors([]);
+    const logs: string[] = [];
+    const addLog = (line: string) => { logs.push(line); setCompileLogs([...logs]); };
+
+    addLog("▶ Analysing errors…");
+
+    // Apply known safe patches to the source
+    let fixed = soliditySource;
+
+    // Patch 1: remove __UUPSUpgradeable_init() — doesn't exist in OZ v5
+    if (fixed.includes("__UUPSUpgradeable_init()")) {
+      fixed = fixed.replace(/\s*__UUPSUpgradeable_init\(\);\n?/g, "\n");
+      addLog("✓ Removed __UUPSUpgradeable_init() (not present in OZ v5)");
+    }
+
+    // Patch 2: constructor() visibility — some old patterns add "public" to constructors
+    fixed = fixed.replace(/constructor\(\) public \{/g, "constructor() {");
+
+    // Patch 3: abstract function syntax for older patterns
+    fixed = fixed.replace(/function (\w+)\([^)]*\) (external|public) virtual;/g,
+      (m) => m.replace(";", " { revert(\"not implemented\"); }"));
+
+    // Patch 4: missing override specifier on _authorizeUpgrade
+    if (fixed.includes("function _authorizeUpgrade(address") && !fixed.includes("override")) {
+      fixed = fixed.replace(
+        /function _authorizeUpgrade\(address([^)]*)\)\s+internal/,
+        "function _authorizeUpgrade(address$1) internal override",
+      );
+    }
+
+    if (fixed === soliditySource) {
+      addLog("  No automatic patches could be applied.");
+      addLog("  Try switching the Solidity version or disabling Upgradeable mode.");
+      setCompileFailed(true);
+      return;
+    }
+
+    setSoliditySource(fixed);
+    addLog("▶ Recompiling with patched source…");
+    setCompiling(true);
+
+    try {
+      const filename = soliditySource.match(/contract\s+(\w+)/)?.[1] ?? "Contract";
+      const compRes = await fetch("/api/compile", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ source: fixed, filename: `${filename}.sol` }),
+      });
+      const result = await compRes.json() as {
+        success: boolean;
+        contracts?: Record<string, { abi: unknown[]; bytecode: string }>;
+        errors?: string[];
+        warnings?: string[];
+        solcVersion?: string;
+        error?: string;
+      };
+
+      for (const w of result.warnings ?? []) addLog(`⚠ ${w.split("\n")[0]}`);
+
+      if (!result.success || !result.contracts) {
+        const errs = result.errors ?? [];
+        for (const e of errs) addLog(`✗ ${e.split("\n").slice(0, 2).join(" | ")}`);
+        addLog(`✗ Still failing after fix · ${errs.length} error(s)`);
+        addLog("  Please check the source or contact support.");
+        setCompileErrors(errs);
+        setCompileFailed(true);
+        setCompiling(false);
+        return;
+      }
+
+      const names = Object.keys(result.contracts);
+      for (const name of names) {
+        const c = result.contracts[name];
+        const byteLen = Math.round((c.bytecode.length - 2) / 2);
+        addLog(`✓ ${name} · ABI: ${(c.abi as unknown[]).length} items · Bytecode: ${byteLen} bytes`);
+      }
+      addLog(`✓ Fixed & compiled · ${names.length} contract(s)`);
+
+      setCompileResult({ contracts: result.contracts, solcVersion: result.solcVersion ?? "" });
+      setSelectedDeployContract(names[0] ?? "");
+      setCompiled(true);
+    } catch (err: unknown) {
+      addLog(`✗ ${err instanceof Error ? err.message : String(err)}`);
+      setCompileFailed(true);
     } finally {
       setCompiling(false);
     }
@@ -1447,6 +1547,31 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
                     {compiling && <div className="text-gray-600 animate-pulse mt-1">▌</div>}
                   </div>
                 </div>
+
+                {/* Fix & Retry button (shown when compile fails) */}
+                {compileFailed && !compiling && !compiled && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-red-700 mb-1">Compilation failed</p>
+                      <p className="text-xs text-red-600 leading-relaxed">
+                        Block67 can attempt to automatically patch known issues
+                        (e.g. OpenZeppelin v5 API changes, constructor visibility).
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleFixAndRetry}
+                      className="self-start flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-colors"
+                    >
+                      <Zap className="w-3.5 h-3.5" /> Fix &amp; Retry
+                    </button>
+                    {compileErrors.length > 0 && (
+                      <details className="text-[11px] text-red-500">
+                        <summary className="cursor-pointer hover:text-red-700">Show raw errors ({compileErrors.length})</summary>
+                        <pre className="mt-2 whitespace-pre-wrap font-mono leading-relaxed">{compileErrors.join("\n")}</pre>
+                      </details>
+                    )}
+                  </div>
+                )}
 
                 {/* ABI + Bytecode (shown after successful compile) */}
                 {compiled && compileResult && !compiling && (

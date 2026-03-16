@@ -163,7 +163,6 @@ contract ERC20UpgradeableToken is
         __ERC20Burnable_init();
         __ERC20Pausable_init();
         __Ownable_init(initialOwner);
-        __UUPSUpgradeable_init();
         maxSupply = maxSupply_;
     }
 
@@ -227,7 +226,6 @@ contract ERC20VotesUpgradeableToken is
         __ERC20Permit_init(name_);
         __ERC20Votes_init();
         __Ownable_init(initialOwner);
-        __UUPSUpgradeable_init();
     }
 
     function mint(address to, uint256 amount) external onlyOwner {
@@ -315,7 +313,6 @@ contract ERC721UpgradeableNFT is
         __ERC721Pausable_init();
         __ERC2981_init();
         __Ownable_init(initialOwner);
-        __UUPSUpgradeable_init();
 
         _baseTokenURI = baseURI_;
         _setDefaultRoyalty(initialOwner, royaltyBps);
@@ -433,7 +430,6 @@ contract ERC1155UpgradeableNFT is
         __ERC1155Supply_init();
         __ERC2981_init();
         __Ownable_init(initialOwner);
-        __UUPSUpgradeable_init();
 
         name   = name_;
         symbol = symbol_;
@@ -530,7 +526,6 @@ contract UpgradeableDAO is
         __GovernorVotesQuorumFraction_init(quorumFraction_);
         __GovernorTimelockControl_init(timelock_);
         __Ownable_init(initialOwner);
-        __UUPSUpgradeable_init();
     }
 
     // ── Required overrides ───────────────────────────────────────────────
@@ -633,7 +628,6 @@ contract Block67TimelockController is
     ) public initializer {
         __TimelockController_init(minDelay, proposers, executors, initialOwner);
         __Ownable_init(initialOwner);
-        __UUPSUpgradeable_init();
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
@@ -695,7 +689,6 @@ contract StakingPoolUpgradeable is
         __Ownable_init(initialOwner);
         __ReentrancyGuard_init();
         __Pausable_init();
-        __UUPSUpgradeable_init();
         stakingToken = IERC20(stakingToken_);
         rewardToken  = IERC20(rewardToken_);
         rewardRate   = rewardRate_;

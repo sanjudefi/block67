@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Zap } from "lucide-react";
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -8,24 +9,31 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <div className="max-w-6xl mx-auto w-full flex items-center justify-between">
 
           {/* Logo */}
-          <Link href="/" className="text-lg font-bold text-gray-900 flex items-center gap-1">
-            block<span className="text-indigo-600">67</span>
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
+              <Zap className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-base font-bold text-gray-900">
+              block<span className="text-indigo-600">67</span>
+            </span>
           </Link>
 
           {/* Center links */}
           <div className="hidden md:flex items-center gap-7">
-            <a href="#product"   className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Product</a>
-            <a href="#usecases"  className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Use Cases</a>
-            <a href="#plans"     className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Plans</a>
+            <a href="#usecases"   className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Use Cases</a>
+            <a href="#howitworks" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">How it works</a>
+            <a href="#features"   className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Features</a>
           </div>
 
           {/* Auth */}
           <div className="flex items-center gap-2">
-            <Link href="/login"  className="text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 transition-colors">
+            <Link href="/login"
+              className="text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 transition-colors">
               Sign In
             </Link>
-            <Link href="/signup" className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors">
-              Get Started →
+            <Link href="/signup"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors">
+              Start Building →
             </Link>
           </div>
         </div>

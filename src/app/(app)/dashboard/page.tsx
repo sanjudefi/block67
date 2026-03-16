@@ -11,6 +11,7 @@ import { PageLayout } from "@/components/PageLayout";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
 import type { TemplateId } from "@/lib/templates/index";
 import { ArrowRight, Clock, MoreHorizontal, Trash2, Zap } from "lucide-react";
+import { generateProjectName } from "@/lib/utils/projectNames";
 
 // ── Auto-pick best template from prompt keywords ─────────────────────────────
 function pickTemplate(prompt: string): TemplateId {
@@ -82,7 +83,7 @@ export default function DashboardPage() {
       const res  = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: `My ${template.name}`, templateId, paramValues: template.defaultConfig }),
+        body: JSON.stringify({ name: generateProjectName(templateId), templateId, paramValues: template.defaultConfig }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);

@@ -10,6 +10,7 @@ import { PageLayout } from "@/components/PageLayout";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
 import type { BuiltinTemplate } from "@/lib/templates/index";
 import { ArrowLeft, ArrowRight, Check, Zap } from "lucide-react";
+import { generateProjectName } from "@/lib/utils/projectNames";
 
 type Step = "pick" | "name";
 
@@ -28,7 +29,7 @@ export default function NewProjectPage() {
   const [error, setError]           = useState("");
 
   useEffect(() => {
-    if (selected && !projectName) setProjectName(`My ${selected.name}`);
+    if (selected && !projectName) setProjectName(generateProjectName(selected.id));
   }, [selected]);
 
   async function create() {
