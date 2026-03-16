@@ -4,7 +4,6 @@ import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAccount, useConnect, useWalletClient } from "wagmi";
-import { injected } from "wagmi/connectors";
 import Link from "next/link";
 
 // useSearchParams() requires a Suspense boundary in Next.js 14
@@ -27,9 +26,15 @@ function SignupForm() {
   const [error, setError]       = useState("");
   const [loading, setLoading]   = useState(false);
 
-  const { address, isConnected } = useAccount();
-  const { connect }              = useConnect();
-  const { data: walletClient }   = useWalletClient();
+  const { address, isConnected }          = useAccount();
+  const { connect, connectors }           = useConnect();
+  const { data: walletClient }            = useWalletClient();
+
+  function connectWallet() {
+    const inj = connectors.find((c) => c.id === "injected") ?? connectors[0];
+    if (!inj) { setError("No wallet found. Install MetaMask and refresh."); return; }
+    connect({ connector: inj });
+  }
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,7 +139,7 @@ function SignupForm() {
 
           {/* MetaMask */}
           {!isConnected ? (
-            <button onClick={() => connect({ connector: injected() })}
+            <button onClick={connectWallet}
               className="w-full flex items-center justify-center gap-2 border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700 font-medium text-sm py-2.5 rounded-xl transition-colors">
               🦊 Continue with MetaMask
             </button>
