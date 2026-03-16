@@ -1,7 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    remotePatterns: [{ protocol: "https", hostname: "avatars.githubusercontent.com" }],
+    remotePatterns: [
+      { protocol: "https", hostname: "avatars.githubusercontent.com" },
+      // Allow images served from any block67 subdomain
+      { protocol: "https", hostname: "*.block67.app" },
+    ],
   },
   // Ensure @openzeppelin .sol files are bundled with the /api/compile
   // serverless function so solc can read them at runtime via fs.readFileSync
