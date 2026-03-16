@@ -1,11 +1,12 @@
 // Server Component — fetches project from DB and passes it to the builder UI
 export const dynamic = "force-dynamic";
 
-import { getServerSession } from "next-auth";
-import { authOptions }      from "@/lib/auth/config";
-import { db }               from "@/lib/db";
+import { Suspense }          from "react";
+import { getServerSession }  from "next-auth";
+import { authOptions }       from "@/lib/auth/config";
+import { db }                from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
-import BuilderClient        from "./builder-client";
+import BuilderClient         from "./builder-client";
 
 export default async function BuilderPage({ params }: { params: { slug: string } }) {
   const session = await getServerSession(authOptions);
@@ -29,5 +30,9 @@ export default async function BuilderPage({ params }: { params: { slug: string }
     paramValues: (project.paramValues ?? {}) as Record<string, string>,
   };
 
-  return <BuilderClient params={params} initialProject={initialProject} />;
+  return (
+    <Suspense>
+      <BuilderClient params={params} initialProject={initialProject} />
+    </Suspense>
+  );
 }

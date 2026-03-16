@@ -72,6 +72,14 @@ export async function middleware(req: NextRequest) {
   const isPublic = PUBLIC_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(p)
   );
+
+  // Redirect already-authenticated users away from login / signup
+  if (pathname === "/login" || pathname === "/signup") {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (token) return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.next();
+  }
+
   if (isPublic) return NextResponse.next();
 
   const token = await getToken({
