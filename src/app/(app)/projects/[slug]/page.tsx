@@ -271,6 +271,18 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
   const [compileLogs, setCompileLogs] = useState<string[]>([]);
   const [compiled, setCompiled]       = useState(false);
 
+  // Download state
+  const [downloadModal, setDownloadModal] = useState(false);
+  const [downloading, setDownloading]     = useState(false);
+  const [downloadCfg, setDownloadCfg]     = useState({
+    projectName:     "",
+    framework:       "hardhat" as "hardhat" | "foundry" | "truffle",
+    network:         "sepolia",
+    solidityVersion: "0.8.20",
+    packageManager:  "npm" as "npm" | "yarn",
+    includeTests:    "yes",
+  });
+
   // Dismissed module suggestions (by messageId:suggestionIdx)
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
 
@@ -475,6 +487,36 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
     });
     setProject((p) => p ? { ...p, status: "ACTIVE" } : p);
     setPublishModal(false);
+  }
+
+  async function handleDownload() {
+    if (!project) return;
+    setDownloading(true);
+    try {
+      const opts = {
+        ...downloadCfg,
+        projectName: downloadCfg.projectName || projectName,
+        includeTests: downloadCfg.includeTests === "yes",
+      };
+      const res = await fetch(`/api/projects/${project.id}/download`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(opts),
+      });
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `${(downloadCfg.projectName || projectName).toLowerCase().replace(/\s+/g, "-")}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setDownloadModal(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDownloading(false);
+    }
   }
 
   const VIEW_W: Record<ViewMode, string> = { desktop: "100%", tablet: "768px", mobile: "390px" };
@@ -1053,14 +1095,25 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
                       {architecture?.contracts.length ?? 0} contracts · Hardhat + Solidity 0.8.24
                     </p>
                   </div>
-                  <button
-                    onClick={handleCompile}
-                    disabled={compiling}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-indigo-600 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-bold rounded-xl transition-colors"
-                  >
-                    {compiling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                    {compiling ? "Compiling…" : "Compile"}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setDownloadCfg((d) => ({ ...d, projectName: d.projectName || projectName }));
+                        setDownloadModal(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 text-gray-600 hover:text-indigo-700 text-sm font-semibold rounded-xl transition-colors"
+                    >
+                      <Terminal className="w-4 h-4" /> Download Project
+                    </button>
+                    <button
+                      onClick={handleCompile}
+                      disabled={compiling}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-indigo-600 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-bold rounded-xl transition-colors"
+                    >
+                      {compiling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                      {compiling ? "Compiling…" : "Compile"}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Contract summary */}
@@ -1252,6 +1305,143 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
           )}
         </div>
       </div>
+
+      {/* ── Download Project modal ───────────────────────────────────── */}
+      {downloadModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-100">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <h3 className="font-bold text-gray-900">Download Project</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Generate a complete smart contract project ZIP</p>
+              </div>
+              <button onClick={() => setDownloadModal(false)} className="text-gray-400 hover:text-gray-700 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Project Name */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Project Name</label>
+                <input
+                  type="text"
+                  value={downloadCfg.projectName}
+                  onChange={(e) => setDownloadCfg((d) => ({ ...d, projectName: e.target.value }))}
+                  placeholder={projectName}
+                  className="w-full border border-gray-200 focus:border-indigo-400 text-gray-900 text-sm rounded-xl px-3.5 py-2.5 outline-none transition-colors"
+                />
+              </div>
+
+              {/* Framework + Network */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Framework</label>
+                  <select
+                    value={downloadCfg.framework}
+                    onChange={(e) => setDownloadCfg((d) => ({ ...d, framework: e.target.value as "hardhat"|"foundry"|"truffle" }))}
+                    className="w-full border border-gray-200 focus:border-indigo-400 text-gray-900 text-sm rounded-xl px-3 py-2.5 outline-none bg-white"
+                  >
+                    <option value="hardhat">Hardhat</option>
+                    <option value="foundry">Foundry</option>
+                    <option value="truffle">Truffle</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Target Network</label>
+                  <select
+                    value={downloadCfg.network}
+                    onChange={(e) => setDownloadCfg((d) => ({ ...d, network: e.target.value }))}
+                    className="w-full border border-gray-200 focus:border-indigo-400 text-gray-900 text-sm rounded-xl px-3 py-2.5 outline-none bg-white"
+                  >
+                    <option value="ethereum">Ethereum</option>
+                    <option value="sepolia">Sepolia (Testnet)</option>
+                    <option value="polygon">Polygon</option>
+                    <option value="arbitrum">Arbitrum</option>
+                    <option value="optimism">Optimism</option>
+                    <option value="localhost">Localhost</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Solidity Version + Package Manager */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Solidity Version</label>
+                  <select
+                    value={downloadCfg.solidityVersion}
+                    onChange={(e) => setDownloadCfg((d) => ({ ...d, solidityVersion: e.target.value }))}
+                    className="w-full border border-gray-200 focus:border-indigo-400 text-gray-900 text-sm rounded-xl px-3 py-2.5 outline-none bg-white"
+                  >
+                    <option value="0.8.20">0.8.20</option>
+                    <option value="0.8.19">0.8.19</option>
+                    <option value="0.8.24">0.8.24</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Package Manager</label>
+                  <select
+                    value={downloadCfg.packageManager}
+                    onChange={(e) => setDownloadCfg((d) => ({ ...d, packageManager: e.target.value as "npm"|"yarn" }))}
+                    className="w-full border border-gray-200 focus:border-indigo-400 text-gray-900 text-sm rounded-xl px-3 py-2.5 outline-none bg-white"
+                  >
+                    <option value="npm">npm</option>
+                    <option value="yarn">yarn</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Include Tests */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Include Tests</label>
+                <div className="flex gap-2">
+                  {["yes", "no"].map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setDownloadCfg((d) => ({ ...d, includeTests: v }))}
+                      className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-colors ${
+                        downloadCfg.includeTests === v
+                          ? "bg-indigo-600 text-white border-indigo-600"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      {v === "yes" ? "Yes, include tests" : "No tests"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* What's included */}
+              <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500 space-y-1">
+                <p className="font-semibold text-gray-700 mb-1.5">ZIP will include:</p>
+                {[
+                  `${architecture?.contracts.length ?? 0} Solidity contracts`,
+                  `${downloadCfg.framework} config + deploy script`,
+                  downloadCfg.includeTests === "yes" ? "Test file templates" : null,
+                  ".env.example + .gitignore",
+                  "README with setup instructions",
+                  "config/block67.config.json",
+                ].filter(Boolean).map((item) => (
+                  <div key={item} className="flex items-center gap-1.5">
+                    <span className="text-emerald-500">✓</span> {item}
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-gray-900 hover:bg-indigo-600 disabled:bg-gray-300 text-white text-sm font-bold rounded-xl transition-colors"
+              >
+                {downloading
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating ZIP…</>
+                  : <><Terminal className="w-4 h-4" /> Generate &amp; Download</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Publish modal ─────────────────────────────────────────────── */}
       {publishModal && (
