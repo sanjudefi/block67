@@ -222,6 +222,47 @@ function ModuleSuggestionCard({
   );
 }
 
+// ── Quick-action chips shown above the chat input ─────────────────────────────
+// label = chip text  |  prompt = text inserted into the textarea on tap
+
+const QUICK_ACTIONS: Record<string, { label: string; prompt: string }[]> = {
+  "erc20-token": [
+    { label: "Enable burning",   prompt: "Enable token burning on transfer" },
+    { label: "Make mintable",    prompt: "Make the token mintable by the owner" },
+    { label: "Add 2% tax",       prompt: "Add a 2% transfer tax to the token" },
+    { label: "Change symbol",    prompt: "Change the token name and symbol" },
+    { label: "Dark theme",       prompt: "Switch the landing page to dark theme" },
+  ],
+  "meme-token": [
+    { label: "Add buy tax",      prompt: "Add a 3% buy tax that goes to treasury" },
+    { label: "Anti-whale",       prompt: "Add anti-whale max wallet protection" },
+    { label: "Rename token",     prompt: "Change the meme token name and symbol" },
+    { label: "Enable burning",   prompt: "Enable deflationary burn on every transfer" },
+    { label: "Lock liquidity",   prompt: "Add a liquidity lock mechanism" },
+  ],
+  "nft-collection": [
+    { label: "Free mint",        prompt: "Make this a free mint collection" },
+    { label: "Change price",     prompt: "Change the mint price" },
+    { label: "Set royalties",    prompt: "Set royalties to 7.5%" },
+    { label: "Whitelist only",   prompt: "Enable whitelist-only minting phase" },
+    { label: "Hidden reveal",    prompt: "Enable a hidden reveal mechanic" },
+  ],
+  "dao-governance": [
+    { label: "Change quorum",    prompt: "Change the quorum requirement percentage" },
+    { label: "Longer voting",    prompt: "Set the voting period to 7 days" },
+    { label: "Add veto role",    prompt: "Add a veto role that can cancel proposals" },
+    { label: "Token gated",      prompt: "Make voting token-gated with a minimum balance" },
+    { label: "Proposal fee",     prompt: "Add a small fee to submit proposals" },
+  ],
+  "staking-dashboard": [
+    { label: "Boost APY",        prompt: "Increase the staking APY to 25%" },
+    { label: "Lock 30 days",     prompt: "Set the lock period to 30 days" },
+    { label: "Remove lock",      prompt: "Remove the lock period so stakers can exit anytime" },
+    { label: "Auto-compound",    prompt: "Enable auto-compound rewards" },
+    { label: "Penalty fee",      prompt: "Add an early exit penalty fee" },
+  ],
+};
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function BuilderPage({ params }: { params: { slug: string } }) {
@@ -1023,6 +1064,25 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
               </div>
             )}
           </div>
+
+          {/* Quick-action chips */}
+          {(QUICK_ACTIONS[templateId] ?? []).length > 0 && (
+            <div className="px-3 pb-2 flex gap-1.5 overflow-x-auto scrollbar-none">
+              {(QUICK_ACTIONS[templateId] ?? []).map((action) => (
+                <button
+                  key={action.label}
+                  disabled={generating}
+                  onClick={() => {
+                    setInput(action.prompt);
+                    inputRef.current?.focus();
+                  }}
+                  className="flex-shrink-0 text-[11px] font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 hover:border-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed rounded-full px-3 py-1 transition-colors whitespace-nowrap"
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Input box */}
           <div className="border-t border-gray-100 p-3">
