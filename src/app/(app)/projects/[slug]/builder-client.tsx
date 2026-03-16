@@ -225,39 +225,59 @@ function ModuleSuggestionCard({
 
 const QUICK_ACTIONS: Record<string, { label: string; prompt: string }[]> = {
   "erc20-token": [
-    { label: "Enable burning",   prompt: "Enable token burning on transfer" },
-    { label: "Make mintable",    prompt: "Make the token mintable by the owner" },
-    { label: "Add 2% tax",       prompt: "Add a 2% transfer tax to the token" },
-    { label: "Change symbol",    prompt: "Change the token name and symbol" },
-    { label: "Dark theme",       prompt: "Switch the landing page to dark theme" },
+    { label: "Enable burning",    prompt: "Enable token burning on every transfer" },
+    { label: "Make mintable",     prompt: "Make the token mintable by the owner" },
+    { label: "Add 2% tax",        prompt: "Add a 2% transfer tax to the token" },
+    { label: "Change symbol",     prompt: "Change the token name and symbol" },
+    { label: "Dark theme",        prompt: "Switch the landing page to dark theme" },
+    { label: "Anti-whale cap",    prompt: "Add a max wallet cap to prevent whales" },
+    { label: "Pause transfers",   prompt: "Add ability to pause all transfers" },
+    { label: "Snapshot votes",    prompt: "Add ERC20Votes snapshot for governance" },
+    { label: "Permit support",    prompt: "Add EIP-2612 gasless permit approvals" },
   ],
   "meme-token": [
-    { label: "Add buy tax",      prompt: "Add a 3% buy tax that goes to treasury" },
-    { label: "Anti-whale",       prompt: "Add anti-whale max wallet protection" },
-    { label: "Rename token",     prompt: "Change the meme token name and symbol" },
-    { label: "Enable burning",   prompt: "Enable deflationary burn on every transfer" },
-    { label: "Lock liquidity",   prompt: "Add a liquidity lock mechanism" },
+    { label: "Add buy tax",       prompt: "Add a 3% buy tax that goes to treasury" },
+    { label: "Add sell tax",      prompt: "Add a 5% sell tax to discourage dumping" },
+    { label: "Anti-whale",        prompt: "Add anti-whale max wallet protection" },
+    { label: "Rename token",      prompt: "Change the meme token name and symbol" },
+    { label: "Enable burning",    prompt: "Enable deflationary burn on every transfer" },
+    { label: "Lock liquidity",    prompt: "Add a liquidity lock mechanism" },
+    { label: "Auto LP",           prompt: "Auto-add liquidity from tax proceeds" },
+    { label: "Blacklist",         prompt: "Add address blacklisting for bots" },
+    { label: "Launch cooldown",   prompt: "Add a trading cooldown after launch" },
   ],
   "nft-collection": [
-    { label: "Free mint",        prompt: "Make this a free mint collection" },
-    { label: "Change price",     prompt: "Change the mint price" },
-    { label: "Set royalties",    prompt: "Set royalties to 7.5%" },
-    { label: "Whitelist only",   prompt: "Enable whitelist-only minting phase" },
-    { label: "Hidden reveal",    prompt: "Enable a hidden reveal mechanic" },
+    { label: "Free mint",         prompt: "Make this a free mint collection" },
+    { label: "Change price",      prompt: "Change the mint price" },
+    { label: "Set royalties",     prompt: "Set royalties to 7.5%" },
+    { label: "Whitelist only",    prompt: "Enable whitelist-only minting phase" },
+    { label: "Hidden reveal",     prompt: "Enable a hidden reveal mechanic" },
+    { label: "Batch mint",        prompt: "Allow minting multiple NFTs at once" },
+    { label: "Soulbound",         prompt: "Make NFTs non-transferable (soulbound)" },
+    { label: "On-chain SVG",      prompt: "Store artwork fully on-chain as SVG" },
+    { label: "Max per wallet",    prompt: "Limit each wallet to 3 NFTs max" },
   ],
   "dao-governance": [
-    { label: "Change quorum",    prompt: "Change the quorum requirement percentage" },
-    { label: "Longer voting",    prompt: "Set the voting period to 7 days" },
-    { label: "Add veto role",    prompt: "Add a veto role that can cancel proposals" },
-    { label: "Token gated",      prompt: "Make voting token-gated with a minimum balance" },
-    { label: "Proposal fee",     prompt: "Add a small fee to submit proposals" },
+    { label: "Change quorum",     prompt: "Change the quorum requirement percentage" },
+    { label: "Longer voting",     prompt: "Set the voting period to 7 days" },
+    { label: "Add veto role",     prompt: "Add a veto role that can cancel proposals" },
+    { label: "Token gated",       prompt: "Make voting token-gated with a minimum balance" },
+    { label: "Proposal fee",      prompt: "Add a small fee to submit proposals" },
+    { label: "Timelock 48h",      prompt: "Add a 48-hour timelock before execution" },
+    { label: "Delegation",        prompt: "Enable vote delegation to other addresses" },
+    { label: "Multi-sig exec",    prompt: "Require multi-sig to execute proposals" },
+    { label: "Snapshot voting",   prompt: "Use token snapshot at proposal creation time" },
   ],
   "staking-dashboard": [
-    { label: "Boost APY",        prompt: "Increase the staking APY to 25%" },
-    { label: "Lock 30 days",     prompt: "Set the lock period to 30 days" },
-    { label: "Remove lock",      prompt: "Remove the lock period so stakers can exit anytime" },
-    { label: "Auto-compound",    prompt: "Enable auto-compound rewards" },
-    { label: "Penalty fee",      prompt: "Add an early exit penalty fee" },
+    { label: "Boost APY",         prompt: "Increase the staking APY to 25%" },
+    { label: "Lock 30 days",      prompt: "Set the lock period to 30 days" },
+    { label: "Remove lock",       prompt: "Remove the lock period so stakers can exit anytime" },
+    { label: "Auto-compound",     prompt: "Enable auto-compound rewards" },
+    { label: "Penalty fee",       prompt: "Add a 10% early exit penalty fee" },
+    { label: "Referral bonus",    prompt: "Add a referral system with 2% bonus APY" },
+    { label: "Multi-token",       prompt: "Allow staking multiple token types" },
+    { label: "NFT boost",         prompt: "Add NFT holder APY boost of +5%" },
+    { label: "Emergency exit",    prompt: "Add emergency unstake with no rewards" },
   ],
 };
 
@@ -1105,6 +1125,25 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
             <div ref={chatEndRef} />
           </div>
 
+          {/* ── Quick-action suggestions — 3-column grid, all visible ──────── */}
+          {(QUICK_ACTIONS[templateId] ?? []).length > 0 && (
+            <div className="border-t border-gray-100 px-4 pt-3 pb-2">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Suggestions</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {(QUICK_ACTIONS[templateId] ?? []).map((action) => (
+                  <button
+                    key={action.label}
+                    disabled={generating}
+                    onClick={() => { setInput(action.prompt); inputRef.current?.focus(); }}
+                    className="text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 hover:border-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg px-2 py-1.5 transition-colors text-center leading-tight"
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ── Feature toggles (boolean params) ── shown above config, prominent */}
           {template && template.params.some((p) => p.type === "boolean") && (
             <div className="border-t border-gray-100 px-4 pt-3 pb-2">
@@ -1172,25 +1211,6 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
               </div>
             )}
           </div>
-
-          {/* Quick-action chips */}
-          {(QUICK_ACTIONS[templateId] ?? []).length > 0 && (
-            <div className="px-3 pb-2 flex gap-1.5 overflow-x-auto scrollbar-none">
-              {(QUICK_ACTIONS[templateId] ?? []).map((action) => (
-                <button
-                  key={action.label}
-                  disabled={generating}
-                  onClick={() => {
-                    setInput(action.prompt);
-                    inputRef.current?.focus();
-                  }}
-                  className="flex-shrink-0 text-[11px] font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 hover:border-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed rounded-full px-3 py-1 transition-colors whitespace-nowrap"
-                >
-                  {action.label}
-                </button>
-              ))}
-            </div>
-          )}
 
           {/* Input box */}
           <div className="border-t border-gray-100 p-3">
