@@ -1,4 +1,4 @@
-// Admin layout — server-side role guard + sidebar
+// Admin layout — ADMIN role guard (middleware already ensures auth)
 export const dynamic = "force-dynamic";
 
 import { cookies }    from "next/headers";
@@ -7,21 +7,21 @@ import { redirect }   from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = cookies();
-  const token = await getToken({
-    req: {
-      cookies: Object.fromEntries(cookieStore.getAll().map((c) => [c.name, c.value])),
-      headers: { cookie: cookieStore.toString() },
-    } as Parameters<typeof getToken>[0]["req"],
-    secret: process.env.NEXTAUTH_SECRET,
-  });
+  let role: string | null = null;
+  try {
+    const store = cookies();
+    const token = await getToken({
+      req:    { cookies: Object.fromEntries(store.getAll().map((c) => [c.name, c.value])) } as never,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
+    role = (token?.role as string) ?? null;
+  } catch { /* treat as non-admin */ }
 
-  if (!token)                  redirect("/login");
-  if (token.role !== "ADMIN")  redirect("/dashboard");
+  if (role !== "ADMIN") redirect("/dashboard");
 
   return (
     <div className="min-h-screen bg-gray-950 flex">
-      <AppSidebar user={{ name: token.name as string, email: token.email as string, role: token.role as string }} />
+      <AppSidebar user={{}} />
       <main className="flex-1 ml-64 p-8">{children}</main>
     </div>
   );

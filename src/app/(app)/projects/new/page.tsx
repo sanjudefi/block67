@@ -3,7 +3,7 @@
 // Route: /projects/new
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { PageLayout } from "@/components/PageLayout";
@@ -15,6 +15,14 @@ import { generateProjectName } from "@/lib/utils/projectNames";
 type Step = "pick" | "name";
 
 export default function NewProjectPage() {
+  return (
+    <Suspense>
+      <NewProjectForm />
+    </Suspense>
+  );
+}
+
+function NewProjectForm() {
   const router       = useRouter();
   const params       = useSearchParams();
   const { data: session } = useSession();
