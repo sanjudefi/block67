@@ -9,10 +9,22 @@ import { db as prisma } from "@/lib/db/index";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
 import type { TemplateId } from "@/lib/templates/index";
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const slug = req.nextUrl.searchParams.get("slug");
+
+  // Single-project lookup by slug (used by the builder page)
+  if (slug) {
+    const project = await prisma.project.findFirst({
+      where: { slug, ownerId: session.user.id },
+      include: { deployments: { orderBy: { createdAt: "desc" }, take: 1 } },
+    });
+    if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ project });
   }
 
   const projects = await prisma.project.findMany({

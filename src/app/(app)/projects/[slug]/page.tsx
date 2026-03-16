@@ -377,12 +377,12 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
   const inputRef     = useRef<HTMLTextAreaElement>(null);
   const nameRef      = useRef<HTMLInputElement>(null);
 
-  // Load project
+  // Load project — fetch by slug directly (avoids searching through entire project list)
   useEffect(() => {
-    fetch("/api/projects")
+    fetch(`/api/projects?slug=${encodeURIComponent(params.slug)}`)
       .then((r) => r.json())
       .then((d) => {
-        const found = (d.projects ?? []).find((p: Project) => p.slug === params.slug);
+        const found = d.project ?? null;
         if (!found) { setNotFound(true); setLoading(false); return; }
         setProject(found);
         setProjectName(found.name);
