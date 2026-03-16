@@ -1,4 +1,4 @@
-// GET /api/projects/[id]/source?version=0.8.20
+// GET /api/projects/[id]/source?version=0.8.20[&upgradeable=true&proxyPattern=uups]
 // Returns the generated Solidity source for a project (first / main contract)
 export const dynamic = "force-dynamic";
 
@@ -7,6 +7,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { db as prisma } from "@/lib/db/index";
 import type { TemplateId } from "@/lib/templates/index";
+import { assemble } from "@/lib/contracts/assembler";
+import type { ProxyPattern } from "@/lib/contracts/assembler";
 
 // ── Solidity generators (mirrors download route logic) ─────────────────────
 
@@ -304,7 +306,7 @@ const TEMPLATE_MAP: Record<string, (cfg: Record<string, string>, ver: string) =>
   "erc20-token":      erc20Source,
   "nft-collection":   nftSource,
   "dao-governance":   daoSource,
-  "staking-rewards":  stakingSource,
+  "staking-dashboard": stakingSource,
   "meme-token":       memeSource,
 };
 
@@ -316,7 +318,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const version = req.nextUrl.searchParams.get("version") ?? "0.8.20";
+  const version      = req.nextUrl.searchParams.get("version")      ?? "0.8.20";
+  const upgradeable  = req.nextUrl.searchParams.get("upgradeable")  === "true";
+  const proxyPattern = (req.nextUrl.searchParams.get("proxyPattern") ?? "uups") as ProxyPattern;
 
   const project = await prisma.project.findFirst({
     where: { id: params.id, ownerId: session.user.id },
@@ -328,10 +332,24 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   const cfg        = (project.paramValues ?? {}) as Record<string, string>;
   const templateId = (cfg._templateKey ?? "erc20-token") as TemplateId;
+
+  // Upgradeable path — use assembler to generate proxy-aware source
+  if (upgradeable) {
+    const assembled = assemble({ templateId, modules: [], config: cfg, version, upgradeable: true, proxyPattern });
+    return NextResponse.json({
+      source:     assembled.source,
+      filename:   assembled.filename,
+      templateId,
+      version,
+      upgradeable: true,
+      proxyPattern,
+    });
+  }
+
+  // Standard (non-upgradeable) path
   const generator  = TEMPLATE_MAP[templateId] ?? erc20Source;
   const source     = generator(cfg, version);
 
-  // Derive filename from contract name
   const contractName =
     cfg.tokenName?.replace(/\s+/g, "") ||
     cfg.collectionName?.replace(/\s+/g, "") ||
@@ -343,5 +361,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     filename:   `${contractName}.sol`,
     templateId,
     version,
+    upgradeable: false,
   });
 }

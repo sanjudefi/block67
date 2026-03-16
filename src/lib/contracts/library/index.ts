@@ -1,20 +1,23 @@
 /**
  * Block67 Component Library — Virtual File System Index
  *
- * 50 production-ready Solidity modules across 8 categories.
+ * 60+ production-ready Solidity modules across 9 categories.
  * Used by the VFS to resolve "block67/..." imports during compilation.
  *
  * Categories:
- *   tokens/        — 8 modules  (ERC-20 variants)
- *   nft/           — 8 modules  (ERC-721 / 1155 variants)
- *   dao/           — 6 modules  (governance, voting, treasury)
- *   defi/          — 8 modules  (staking, AMM, vesting, oracles)
- *   security/      — 5 modules  (access, multisig, pause, reentrancy)
- *   payments/      — 5 modules  (splitter, escrow, subscriptions)
- *   marketplace/   — 5 modules  (listing, auctions, offers, fees)
- *   infrastructure/— 5 modules  (factory, proxy, multisig wallet, events)
- *
- * Total: 50 modules
+ *   tokens/             — 8 modules  (ERC-20 variants)
+ *   nft/                — 8 modules  (ERC-721 / 1155 variants)
+ *   dao/                — 6 modules  (governance, voting, treasury)
+ *   defi/               — 8 modules  (staking, AMM, vesting, oracles)
+ *   security/           — 5 modules  (access, multisig, pause, reentrancy)
+ *   payments/           — 5 modules  (splitter, escrow, subscriptions)
+ *   marketplace/        — 5 modules  (listing, auctions, offers, fees)
+ *   infrastructure/     — 5 modules  (factory, proxy, multisig wallet, events)
+ *   proxy/              — 3 modules  (TransparentProxy, UUPSProxy, BeaconFactory)
+ *   upgradeable/tokens/ — 2 modules  (ERC20Upgradeable, ERC20VotesUpgradeable)
+ *   upgradeable/nft/    — 2 modules  (ERC721Upgradeable, ERC1155Upgradeable)
+ *   upgradeable/dao/    — 2 modules  (UpgradeableDAO, TimelockController)
+ *   upgradeable/defi/   — 1 module   (StakingPoolUpgradeable)
  */
 
 import { TOKENS }         from "./tokens";
@@ -25,6 +28,7 @@ import { SECURITY }       from "./security";
 import { PAYMENTS }       from "./payments";
 import { MARKETPLACE }    from "./marketplace";
 import { INFRASTRUCTURE } from "./infrastructure";
+import { UPGRADEABLE_VFS } from "./upgradeable";
 
 export const LIBRARY_VFS: Record<string, string> = {
   ...TOKENS,
@@ -35,6 +39,7 @@ export const LIBRARY_VFS: Record<string, string> = {
   ...PAYMENTS,
   ...MARKETPLACE,
   ...INFRASTRUCTURE,
+  ...UPGRADEABLE_VFS,
 };
 
 // ── AI Assembly Map ───────────────────────────────────────────────────────────
@@ -85,6 +90,34 @@ export const AI_MODULE_MAP = {
     offers:      ["block67/marketplace/OfferManager.sol"],
     fees:        ["block67/marketplace/MarketplaceFees.sol"],
   },
+
+  // ── Upgradeable variants ──────────────────────────────────────────────
+  "upgradeable-erc20": {
+    token:       ["block67/proxy/UUPSProxy.sol",              "block67/upgradeable/tokens/ERC20UpgradeableToken.sol"],
+    votes:       ["block67/proxy/UUPSProxy.sol",              "block67/upgradeable/tokens/ERC20VotesUpgradeable.sol"],
+    transparent: ["block67/proxy/TransparentProxy.sol",       "block67/upgradeable/tokens/ERC20UpgradeableToken.sol"],
+    beacon:      ["block67/proxy/BeaconProxyFactory.sol",     "block67/upgradeable/tokens/ERC20UpgradeableToken.sol"],
+  },
+  "upgradeable-nft": {
+    erc721:      ["block67/proxy/UUPSProxy.sol",              "block67/upgradeable/nft/ERC721UpgradeableNFT.sol"],
+    erc1155:     ["block67/proxy/UUPSProxy.sol",              "block67/upgradeable/nft/ERC1155UpgradeableNFT.sol"],
+    transparent: ["block67/proxy/TransparentProxy.sol",       "block67/upgradeable/nft/ERC721UpgradeableNFT.sol"],
+    beacon:      ["block67/proxy/BeaconProxyFactory.sol",     "block67/upgradeable/nft/ERC721UpgradeableNFT.sol"],
+  },
+  "upgradeable-dao": {
+    governor:    ["block67/proxy/UUPSProxy.sol",              "block67/upgradeable/dao/UpgradeableDAO.sol"],
+    timelock:    ["block67/proxy/UUPSProxy.sol",              "block67/upgradeable/dao/TimelockControllerUpgradeable.sol"],
+    full:        [
+      "block67/proxy/UUPSProxy.sol",
+      "block67/upgradeable/tokens/ERC20VotesUpgradeable.sol",
+      "block67/upgradeable/dao/TimelockControllerUpgradeable.sol",
+      "block67/upgradeable/dao/UpgradeableDAO.sol",
+    ],
+  },
+  "upgradeable-staking": {
+    pool:        ["block67/proxy/UUPSProxy.sol",              "block67/upgradeable/defi/StakingPoolUpgradeable.sol"],
+    transparent: ["block67/proxy/TransparentProxy.sol",       "block67/upgradeable/defi/StakingPoolUpgradeable.sol"],
+  },
 } as const;
 
 // ── Library Stats ─────────────────────────────────────────────────────────────
@@ -99,5 +132,6 @@ export const LIBRARY_STATS = {
     payments:       Object.keys(PAYMENTS).length,
     marketplace:    Object.keys(MARKETPLACE).length,
     infrastructure: Object.keys(INFRASTRUCTURE).length,
+    upgradeable:    Object.keys(UPGRADEABLE_VFS).length,
   },
 };

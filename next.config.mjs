@@ -7,7 +7,10 @@ const nextConfig = {
   // serverless function so solc can read them at runtime via fs.readFileSync
   experimental: {
     outputFileTracingIncludes: {
-      "/api/compile": ["./node_modules/@openzeppelin/contracts/**/*.sol"],
+      "/api/compile": [
+        "./node_modules/@openzeppelin/contracts/**/*.sol",
+        "./node_modules/@openzeppelin/contracts-upgradeable/**/*.sol",
+      ],
     },
   },
   // Suppress solc/emscripten webpack warnings

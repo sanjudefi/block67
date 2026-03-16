@@ -5,8 +5,9 @@
  * compilation NEVER fails due to missing imports.
  *
  * Supported import namespaces:
- *  - @openzeppelin/contracts/...  → node_modules (always available)
- *  - block67/tokens/...           → embedded library constants
+ *  - @openzeppelin/contracts/...              → node_modules (non-upgradeable)
+ *  - @openzeppelin/contracts-upgradeable/...  → node_modules (upgradeable OZ v5)
+ *  - block67/tokens/...                       → embedded library constants
  *  - block67/nft/...
  *  - block67/dao/...
  *  - block67/defi/...
@@ -14,6 +15,11 @@
  *  - block67/payments/...
  *  - block67/marketplace/...
  *  - block67/infrastructure/...
+ *  - block67/proxy/...                        → proxy wrappers (Transparent/UUPS/Beacon)
+ *  - block67/upgradeable/tokens/...           → upgradeable token templates
+ *  - block67/upgradeable/nft/...              → upgradeable NFT templates
+ *  - block67/upgradeable/dao/...              → upgradeable DAO templates
+ *  - block67/upgradeable/defi/...             → upgradeable DeFi templates
  */
 import fs   from "fs";
 import path from "path";
