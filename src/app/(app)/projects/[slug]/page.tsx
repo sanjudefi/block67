@@ -7,7 +7,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useConnect, useDisconnect, useAccount, useSwitchChain } from "wagmi";
-import { injected } from "wagmi/connectors";
 import { sepolia } from "wagmi/chains";
 import {
   ArrowLeft, Zap, Globe, Rocket, Save, Check, X,
@@ -232,11 +231,21 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
   const { data: session } = useSession();
 
   // Wallet / deploy
-  const { address, isConnected, chain: walletChain } = useAccount();
-  const { connect, isPending: connectPending }        = useConnect();
-  const { disconnect }                                = useDisconnect();
-  const { switchChain, isPending: switchPending }     = useSwitchChain();
-  const [deployError, setDeployError]                 = useState<string | null>(null);
+  const { address, isConnected, chain: walletChain }            = useAccount();
+  const { connect, connectors, isPending: connectPending,
+          error: connectErr }                                    = useConnect();
+  const { disconnect }                                           = useDisconnect();
+  const { switchChain, isPending: switchPending,
+          error: switchErr }                                     = useSwitchChain();
+  const [deployError, setDeployError]                           = useState<string | null>(null);
+
+  // Surface wallet errors automatically
+  useEffect(() => {
+    if (connectErr) setDeployError(connectErr.message);
+  }, [connectErr]);
+  useEffect(() => {
+    if (switchErr) setDeployError(switchErr.message);
+  }, [switchErr]);
 
   const [project, setProject]       = useState<Project | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -1250,7 +1259,9 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
                       <button
                         onClick={() => {
                           setDeployError(null);
-                          connect({ connector: injected() });
+                          const inj = connectors.find((c) => c.id === "injected") ?? connectors[0];
+                          if (!inj) { setDeployError("No wallet detected. Install MetaMask and refresh."); return; }
+                          connect({ connector: inj });
                         }}
                         disabled={connectPending}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-bold rounded-lg transition-colors"
