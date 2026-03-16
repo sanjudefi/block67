@@ -29,11 +29,16 @@ function SignupForm() {
   const [address, setAddress]   = useState("");
   const isConnected             = !!address;
 
-  /** Connect MetaMask via ethers.js / window.ethereum */
+  /** Connect MetaMask — redirects into MetaMask app on mobile if needed */
   async function connectWallet() {
     setError("");
     if (typeof window === "undefined" || !window.ethereum) {
-      setError("MetaMask not found. Install it and refresh.");
+      if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        const dappUrl = window.location.href.replace(/^https?:\/\//, "");
+        window.location.href = `https://metamask.app.link/dapp/${dappUrl}`;
+        return;
+      }
+      setError("MetaMask not installed. Get it at metamask.io");
       return;
     }
     try {

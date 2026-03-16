@@ -47,7 +47,12 @@ export function SettingsClient({ user: initial }: { user: UserData }) {
   async function connectWallet() {
     setWalletErr("");
     if (typeof window === "undefined" || !window.ethereum) {
-      setWalletErr("MetaMask not found. Install it and refresh.");
+      if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        const dappUrl = window.location.href.replace(/^https?:\/\//, "");
+        window.location.href = `https://metamask.app.link/dapp/${dappUrl}`;
+        return;
+      }
+      setWalletErr("MetaMask not installed. Get it at metamask.io");
       return;
     }
     try {

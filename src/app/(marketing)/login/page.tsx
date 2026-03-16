@@ -17,11 +17,17 @@ export default function LoginPage() {
   const [address, setAddress]     = useState("");
   const isConnected               = !!address;
 
-  /** Connect MetaMask via ethers.js / window.ethereum */
+  /** Connect MetaMask — redirects into MetaMask app on mobile if needed */
   async function connectWallet() {
     setError("");
     if (typeof window === "undefined" || !window.ethereum) {
-      setError("MetaMask not found. Install it and refresh.");
+      // On mobile: deep-link into MetaMask's in-app browser so window.ethereum is injected
+      if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        const dappUrl = window.location.href.replace(/^https?:\/\//, "");
+        window.location.href = `https://metamask.app.link/dapp/${dappUrl}`;
+        return;
+      }
+      setError("MetaMask not installed. Get it at metamask.io");
       return;
     }
     try {
@@ -134,6 +140,7 @@ export default function LoginPage() {
                 <button onClick={connectWallet}
                   className="w-full flex items-center justify-center gap-2 border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700 font-medium text-sm py-2.5 rounded-xl transition-colors">
                   🦊 Connect MetaMask
+                  <span className="text-[10px] text-orange-400 ml-auto hidden sm:block">Opens app on mobile</span>
                 </button>
               ) : (
                 <>

@@ -1698,7 +1698,14 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                       <button
                         onClick={async () => {
                           setDeployError(null);
-                          if (!window.ethereum) { setDeployError("MetaMask not found. Install it and refresh."); return; }
+                          if (!window.ethereum) {
+                            if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                              const dappUrl = window.location.href.replace(/^https?:\/\//, "");
+                              window.location.href = `https://metamask.app.link/dapp/${dappUrl}`;
+                              return;
+                            }
+                            setDeployError("MetaMask not found. Install it at metamask.io"); return;
+                          }
                           try {
                             const accounts: string[] = await window.ethereum.request({ method: "eth_requestAccounts" });
                             setEthAddress(accounts[0]);
