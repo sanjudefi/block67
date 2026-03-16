@@ -282,7 +282,13 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
   const [saved, setSaved]           = useState(false);
   const [projectName, setProjectName] = useState("");
   const [editingName, setEditingName] = useState(false);
-  const [publishModal, setPublishModal] = useState(false);
+  const [publishModal, setPublishModal]     = useState(false);
+  const [editSlug, setEditSlug]             = useState("");
+  const [slugStatus, setSlugStatus]         = useState<"idle" | "checking" | "available" | "taken" | "error">("idle");
+  const [slugError, setSlugError]           = useState("");
+  const [slugSuggestion, setSlugSuggestion] = useState("");
+  const [savingSlug, setSavingSlug]         = useState(false);
+  const [copied, setCopied]                 = useState(false);
 
   const [previewFlash, setPreviewFlash] = useState(false);
   const [updateToast, setUpdateToast]   = useState<string | null>(null);
@@ -536,15 +542,83 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
     }
   }
 
+  // ── Slug editor helpers ───────────────────────────────────────────────────
+  function openPublishModal() {
+    setEditSlug(project?.slug ?? "");
+    setSlugStatus("idle");
+    setSlugError("");
+    setSlugSuggestion("");
+    setPublishModal(true);
+  }
+
+  async function checkSlug(value: string) {
+    if (!project) return;
+    const v = value.toLowerCase().trim();
+    if (!v || v === project.slug) { setSlugStatus("idle"); setSlugError(""); return; }
+    setSlugStatus("checking");
+    try {
+      const res  = await fetch(`/api/projects/slugs?slug=${encodeURIComponent(v)}&excludeId=${project.id}`);
+      const data = await res.json() as { available: boolean; error?: string; suggestion?: string };
+      if (data.available) {
+        setSlugStatus("available");
+        setSlugError("");
+        setSlugSuggestion("");
+      } else {
+        setSlugStatus("taken");
+        setSlugError(data.error ?? "Subdomain is already taken");
+        setSlugSuggestion(data.suggestion ?? "");
+      }
+    } catch {
+      setSlugStatus("error");
+      setSlugError("Could not check availability");
+    }
+  }
+
+  async function saveSlug() {
+    if (!project || slugStatus === "taken" || slugStatus === "error") return;
+    const newSlug = editSlug.toLowerCase().trim();
+    if (!newSlug || newSlug === project.slug) return;
+    setSavingSlug(true);
+    const res  = await fetch(`/api/projects/${project.id}`, {
+      method:  "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ slug: newSlug }),
+    });
+    const data = await res.json() as { project?: { slug: string }; error?: string };
+    setSavingSlug(false);
+    if (data.project) {
+      setProject((p) => p ? { ...p, slug: data.project!.slug } : p);
+      setEditSlug(data.project.slug);
+      setSlugStatus("idle");
+    } else {
+      setSlugStatus("taken");
+      setSlugError(data.error ?? "Could not update subdomain");
+    }
+  }
+
   async function publishProject() {
     if (!project) return;
-    await fetch(`/api/projects/${project.id}`, {
-      method: "PATCH",
+    // Save slug first if it changed
+    const newSlug = editSlug.toLowerCase().trim();
+    const body: Record<string, string> = { status: "ACTIVE" };
+    if (newSlug && newSlug !== project.slug && slugStatus === "available") {
+      body.slug = newSlug;
+    }
+    const res  = await fetch(`/api/projects/${project.id}`, {
+      method:  "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "ACTIVE" }),
+      body:    JSON.stringify(body),
     });
-    setProject((p) => p ? { ...p, status: "ACTIVE" } : p);
+    const data = await res.json() as { project?: { status: string; slug: string } };
+    setProject((p) => p ? { ...p, status: "ACTIVE", ...(data.project?.slug ? { slug: data.project.slug } : {}) } : p);
     setPublishModal(false);
+  }
+
+  function copyLiveUrl() {
+    if (!project) return;
+    navigator.clipboard.writeText(`https://${project.slug}.block67.app`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   async function handleDownload() {
@@ -675,12 +749,31 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
         </button>
 
         {project?.status === "ACTIVE" ? (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Live
-          </span>
+          /* ── Live URL badge — top-right after publish ────────────────── */
+          <div className="flex items-center gap-1.5">
+            <a
+              href={`https://${project.slug}.block67.app`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:flex items-center gap-1.5 text-xs font-mono text-indigo-600 bg-indigo-50 border border-indigo-200 hover:border-indigo-400 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors max-w-[200px] truncate"
+            >
+              <Globe className="w-3 h-3 flex-shrink-0" />
+              {project.slug}.block67.app
+            </a>
+            <button
+              onClick={copyLiveUrl}
+              title="Copy live URL"
+              className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg border border-gray-200 hover:border-indigo-200 transition-colors"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+            </button>
+            <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />Live
+            </span>
+          </div>
         ) : (
           <button
-            onClick={() => setPublishModal(true)}
+            onClick={openPublishModal}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-900 hover:bg-indigo-600 text-white transition-colors"
           >
             <Globe className="w-3.5 h-3.5" /> Publish
@@ -1824,21 +1917,112 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
 
       {/* ── Publish modal ─────────────────────────────────────────────── */}
       {publishModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-gray-100">
+
+            {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h3 className="font-bold text-gray-900">Publish Project</h3>
-              <button onClick={() => setPublishModal(false)} className="text-gray-400 hover:text-gray-700"><X className="w-4 h-4" /></button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                <p className="text-xs text-gray-500 mb-1">Your app will be live at:</p>
-                <p className="text-indigo-600 font-mono text-sm font-bold">https://{project?.slug}.block67.app</p>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-indigo-600 flex items-center justify-center">
+                  <Globe className="w-3.5 h-3.5 text-white" />
+                </div>
+                <h3 className="font-bold text-gray-900">Publish to Subdomain</h3>
               </div>
-              <p className="text-sm text-gray-500">Publishing makes your app publicly accessible. You can take it offline at any time.</p>
+              <button onClick={() => setPublishModal(false)} className="text-gray-400 hover:text-gray-700 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5">
+
+              {/* Subdomain editor */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-2">
+                  Your subdomain
+                  <span className="ml-1 text-gray-400 font-normal">(min. 8 characters)</span>
+                </label>
+                <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-indigo-400 transition-colors">
+                  <span className="text-xs text-gray-400 whitespace-nowrap select-none">block67.app /</span>
+                  <input
+                    value={editSlug}
+                    onChange={(e) => {
+                      const v = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "");
+                      setEditSlug(v);
+                      setSlugStatus("idle");
+                    }}
+                    onBlur={() => checkSlug(editSlug)}
+                    className="flex-1 bg-transparent text-sm font-mono text-gray-900 outline-none min-w-0"
+                    placeholder="my-project"
+                    maxLength={48}
+                    spellCheck={false}
+                  />
+                  {/* Status indicator */}
+                  {slugStatus === "checking" && (
+                    <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin flex-shrink-0" />
+                  )}
+                  {slugStatus === "available" && (
+                    <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                  )}
+                  {slugStatus === "taken" && (
+                    <X className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                  )}
+                </div>
+
+                {/* Validation feedback */}
+                {slugStatus === "available" && (
+                  <p className="text-xs text-emerald-600 mt-1.5 flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Available
+                  </p>
+                )}
+                {slugStatus === "taken" && (
+                  <div className="mt-1.5 space-y-1">
+                    <p className="text-xs text-red-600">{slugError}</p>
+                    {slugSuggestion && (
+                      <button
+                        onClick={() => { setEditSlug(slugSuggestion); setSlugStatus("idle"); }}
+                        className="text-xs text-indigo-600 hover:underline"
+                      >
+                        Use &quot;{slugSuggestion}&quot; instead
+                      </button>
+                    )}
+                  </div>
+                )}
+                {slugStatus === "error" && (
+                  <p className="text-xs text-red-600 mt-1.5">{slugError}</p>
+                )}
+                {editSlug.length > 0 && editSlug.length < 8 && (
+                  <p className="text-xs text-amber-600 mt-1.5">
+                    {8 - editSlug.length} more character{8 - editSlug.length !== 1 ? "s" : ""} needed
+                  </p>
+                )}
+              </div>
+
+              {/* Live URL preview */}
+              <div className="bg-indigo-50 rounded-xl px-4 py-3 border border-indigo-100">
+                <p className="text-[11px] text-indigo-400 uppercase tracking-wider mb-1 font-semibold">Live URL after publish</p>
+                <p className="text-indigo-700 font-mono text-sm font-bold break-all">
+                  https://{(editSlug || project?.slug)}.block67.app
+                </p>
+              </div>
+
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Your project will be publicly accessible at the URL above. You can change the subdomain
+                any time from this dialog.
+              </p>
+
+              {/* Actions */}
               <div className="flex gap-3">
-                <button onClick={() => setPublishModal(false)} className="flex-1 py-2.5 bg-gray-100 text-gray-700 text-sm rounded-xl hover:bg-gray-200 transition-colors">Cancel</button>
-                <button onClick={publishProject} className="flex-1 py-2.5 bg-gray-900 hover:bg-indigo-600 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setPublishModal(false)}
+                  className="flex-1 py-2.5 bg-gray-100 text-gray-700 text-sm rounded-xl hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={publishProject}
+                  disabled={slugStatus === "taken" || slugStatus === "error" || slugStatus === "checking" || (editSlug.length > 0 && editSlug.length < 8)}
+                  className="flex-1 py-2.5 bg-gray-900 hover:bg-indigo-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
                   <Globe className="w-4 h-4" /> Publish Now
                 </button>
               </div>

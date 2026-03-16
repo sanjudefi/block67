@@ -33,14 +33,27 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
-  const { name, paramValues, status } = body;
+  const { name, paramValues, status, slug } = body;
+
+  // If slug update requested — validate and check uniqueness
+  if (slug !== undefined) {
+    const SLUG_RE = /^[a-z0-9][a-z0-9-]{6,}[a-z0-9]$/;
+    if (!SLUG_RE.test(slug)) {
+      return NextResponse.json({ error: "Invalid slug format. Minimum 8 characters, lowercase alphanumeric and hyphens only." }, { status: 400 });
+    }
+    const conflict = await prisma.project.findFirst({ where: { slug, NOT: { id: params.id } } });
+    if (conflict) {
+      return NextResponse.json({ error: "Subdomain already taken" }, { status: 409 });
+    }
+  }
 
   const updated = await prisma.project.update({
     where: { id: params.id },
     data: {
-      ...(name ? { name: name.trim() } : {}),
-      ...(paramValues ? { paramValues } : {}),
-      ...(status ? { status } : {}),
+      ...(name            ? { name: name.trim() }  : {}),
+      ...(paramValues     ? { paramValues }         : {}),
+      ...(status          ? { status }              : {}),
+      ...(slug !== undefined ? { slug }             : {}),
     },
   });
 

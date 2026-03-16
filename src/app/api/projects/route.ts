@@ -47,8 +47,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid templateId" }, { status: 400 });
   }
 
-  // Generate a unique slug from name
-  const baseSlug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  // Generate a unique slug from name — minimum 8 characters
+  const SLUG_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
+  function randomChars(n: number) {
+    let s = "";
+    for (let i = 0; i < n; i++) s += SLUG_CHARS[Math.floor(Math.random() * SLUG_CHARS.length)];
+    return s;
+  }
+  let baseSlug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  // Pad to minimum 8 characters
+  if (baseSlug.length < 8) {
+    const pad = 8 - baseSlug.length;
+    baseSlug = baseSlug.length > 0 ? `${baseSlug}-${randomChars(pad - 1)}` : randomChars(8);
+  }
   let slug = baseSlug;
   let suffix = 1;
   while (true) {

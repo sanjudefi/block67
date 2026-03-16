@@ -13,13 +13,17 @@ export default withAuth(
     }
 
     // ── Subdomain routing ──────────────────────────────────────────────────
-    const host = req.headers.get("host") ?? "";
-    const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN ?? "block67.app";
+    // pepecoin.block67.app  →  internally rewrite to /site/pepecoin
+    // No auth required for subdomain pages (public-facing project pages)
+    const host        = req.headers.get("host") ?? "";
+    const appDomain   = process.env.NEXT_PUBLIC_APP_DOMAIN ?? "block67.app";
 
     if (host.endsWith(`.${appDomain}`)) {
       const slug = host.replace(`.${appDomain}`, "");
       if (slug && slug !== "www") {
-        return NextResponse.rewrite(new URL(`/projects/${slug}${pathname}`, req.url));
+        // Rewrite to the public /site/[slug] route
+        const rewriteUrl = new URL(`/site/${slug}`, req.url);
+        return NextResponse.rewrite(rewriteUrl);
       }
     }
 
@@ -29,6 +33,11 @@ export default withAuth(
     callbacks: {
       authorized({ token, req }) {
         const { pathname } = req.nextUrl;
+        const host = req.headers.get("host") ?? "";
+        const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN ?? "block67.app";
+
+        // All subdomain requests are public — bypass auth check
+        if (host.endsWith(`.${appDomain}`)) return true;
 
         // These paths are always public
         const publicPaths = [
@@ -36,8 +45,10 @@ export default withAuth(
           "/login",
           "/signup",
           "/templates",
+          "/site/",        // public project pages
           "/api/auth",
           "/api/chains",
+          "/api/projects/slugs", // slug availability check (unauthenticated)
         ];
         const isPublic = publicPaths.some((p) => pathname.startsWith(p));
         return isPublic || !!token;
