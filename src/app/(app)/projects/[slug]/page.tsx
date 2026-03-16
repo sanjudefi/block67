@@ -6,6 +6,9 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useConnect, useDisconnect, useAccount, useSwitchChain } from "wagmi";
+import { injected } from "wagmi/connectors";
+import { sepolia } from "wagmi/chains";
 import {
   ArrowLeft, Zap, Globe, Rocket, Save, Check, X,
   Monitor, Tablet, Smartphone, Settings2, ChevronDown,
@@ -64,13 +67,6 @@ function parsePlan(text: string): { plan: PlanSection[]; remainder: string } {
   return { plan: sections, remainder: rem.join(" ") };
 }
 
-const CHAINS = [
-  { name: "Ethereum Mainnet", id: 1,        color: "#627EEA", sym: "ETH" },
-  { name: "Base",             id: 8453,     color: "#0052FF", sym: "ETH" },
-  { name: "Polygon",          id: 137,      color: "#8247E5", sym: "MATIC" },
-  { name: "BNB Smart Chain",  id: 56,       color: "#F0B90B", sym: "BNB" },
-  { name: "Sepolia Testnet",  id: 11155111, color: "#9B9B9B", sym: "ETH" },
-];
 
 const DID_YOU_KNOW = [
   "Deploy to Ethereum, Base, Polygon and 12 other EVM chains",
@@ -235,6 +231,13 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
 
+  // Wallet / deploy
+  const { address, isConnected, chain: walletChain } = useAccount();
+  const { connect, isPending: connectPending }        = useConnect();
+  const { disconnect }                                = useDisconnect();
+  const { switchChain, isPending: switchPending }     = useSwitchChain();
+  const [deployError, setDeployError]                 = useState<string | null>(null);
+
   const [project, setProject]       = useState<Project | null>(null);
   const [loading, setLoading]       = useState(true);
   const [notFound, setNotFound]     = useState(false);
@@ -259,8 +262,6 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
   const [previewFlash, setPreviewFlash] = useState(false);
   const [updateToast, setUpdateToast]   = useState<string | null>(null);
   const [showConfigPanel, setShowConfigPanel] = useState(false);
-  const [selectedChain, setSelectedChain]     = useState(0);
-  const [deployStep, setDeployStep] = useState<"idle"|"connecting"|"deploying"|"done">("idle");
 
   // Architecture state
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
@@ -1088,6 +1089,17 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
           {tab === "compile" && (
             <div className="flex-1 overflow-auto p-6 bg-white">
               <div className="max-w-2xl">
+                {/* Simulation notice */}
+                <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5">
+                  <span className="text-amber-500 text-base mt-0.5">⚡</span>
+                  <div>
+                    <p className="text-sm font-bold text-amber-800">Preview Simulation</p>
+                    <p className="text-xs text-amber-700 mt-0.5">
+                      This is a visual preview of what compilation will look like. Real Solidity compilation runs locally after you <strong>Download Project</strong> and run <code className="bg-amber-100 px-1 rounded">npx hardhat compile</code>.
+                    </p>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between mb-5">
                   <div>
                     <h2 className="font-bold text-gray-900">Compile Contracts</h2>
@@ -1174,67 +1186,122 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
           {tab === "deploy" && (
             <div className="flex-1 overflow-auto p-6 bg-white">
               <div className="max-w-md">
+                {/* Must compile first */}
                 {!compiled && (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5 flex items-center gap-2">
                     <span className="text-amber-500 text-sm">⚠️</span>
                     <p className="text-sm text-amber-700">
-                      Compile your contracts first before deploying.{" "}
+                      Run the compile step first.{" "}
                       <button onClick={() => setTab("compile")} className="underline font-semibold">Go to Compile →</button>
                     </p>
                   </div>
                 )}
+
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center">
                     <CircuitBoard className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <h2 className="font-bold text-gray-900">Deploy Smart Contract</h2>
-                    <p className="text-xs text-gray-400">Connect your wallet and launch on-chain</p>
+                    <p className="text-xs text-gray-400">Connect MetaMask and launch on Sepolia testnet</p>
                   </div>
                 </div>
 
-                {/* Steps */}
-                <div className="flex items-center gap-0 mb-6">
-                  {["Select Network", "Review", "Deploy"].map((step, i) => (
-                    <div key={step} className="flex items-center flex-1">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
-                        deployStep === "done" || (deployStep === "deploying" && i < 3) ? "bg-emerald-500 text-white"
-                        : i === 0 ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-400"
+                {/* Steps indicator */}
+                <div className="flex items-center mb-6">
+                  {[
+                    { label: "Connect Wallet", done: isConnected },
+                    { label: "Switch to Sepolia", done: isConnected && walletChain?.id === sepolia.id },
+                    { label: "Deploy", done: false },
+                  ].map((step, i) => (
+                    <div key={step.label} className="flex items-center flex-1">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${
+                        step.done ? "bg-emerald-500 text-white" : "bg-gray-100 text-gray-400"
                       }`}>
-                        {deployStep === "done" ? <Check className="w-3 h-3" /> : i + 1}
+                        {step.done ? <Check className="w-3 h-3" /> : i + 1}
                       </div>
-                      <span className="text-[10px] text-gray-500 ml-1 flex-1">{step}</span>
-                      {i < 2 && <div className="w-4 h-px bg-gray-200 mx-1" />}
+                      <span className="text-[10px] text-gray-500 ml-1 flex-1 truncate">{step.label}</span>
+                      {i < 2 && <div className="w-4 h-px bg-gray-200 mx-1 flex-shrink-0" />}
                     </div>
                   ))}
                 </div>
 
-                {/* Chain selector */}
-                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden mb-4 shadow-sm">
-                  <div className="px-4 py-3 border-b border-gray-100">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Select Network</p>
+                {/* ── STEP 1: Connect wallet ── */}
+                <div className={`border rounded-2xl overflow-hidden mb-4 ${isConnected ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white shadow-sm"}`}>
+                  <div className="px-4 py-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        {isConnected ? "Wallet Connected" : "Step 1 · Connect Wallet"}
+                      </p>
+                      {isConnected && address && (
+                        <p className="text-sm font-mono text-emerald-700 mt-0.5">
+                          {address.slice(0, 6)}…{address.slice(-4)}
+                        </p>
+                      )}
+                    </div>
+                    {isConnected ? (
+                      <button
+                        onClick={() => disconnect()}
+                        className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        Disconnect
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setDeployError(null);
+                          connect({ connector: injected() });
+                        }}
+                        disabled={connectPending}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-bold rounded-lg transition-colors"
+                      >
+                        {connectPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                        {connectPending ? "Connecting…" : "Connect MetaMask"}
+                      </button>
+                    )}
                   </div>
-                  {CHAINS.map((chain, i) => (
-                    <button
-                      key={chain.id}
-                      onClick={() => setSelectedChain(i)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors border-b border-gray-50 last:border-0 ${
-                        selectedChain === i ? "bg-indigo-50" : "hover:bg-gray-50"
-                      }`}
-                    >
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0" style={{ background: chain.color }}>
-                        {chain.sym === "ETH" ? "Ξ" : chain.sym === "MATIC" ? "⬡" : "B"}
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-sm font-semibold text-gray-900">{chain.name}</p>
-                        <p className="text-[11px] text-gray-400">Chain ID: {chain.id} · Gas: {chain.sym}</p>
-                      </div>
-                      {selectedChain === i && <Check className="w-4 h-4 text-indigo-600 flex-shrink-0" />}
-                    </button>
-                  ))}
                 </div>
 
-                {/* Contract info */}
+                {/* ── STEP 2: Switch to Sepolia ── */}
+                {isConnected && (
+                  <div className={`border rounded-2xl overflow-hidden mb-4 ${walletChain?.id === sepolia.id ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white shadow-sm"}`}>
+                    <div className="px-4 py-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                          {walletChain?.id === sepolia.id ? "Network: Sepolia Testnet ✓" : "Step 2 · Switch Network"}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {walletChain?.id === sepolia.id
+                            ? "Chain ID 11155111 · Ready for deployment"
+                            : `Currently on: ${walletChain?.name ?? "Unknown"}`}
+                        </p>
+                      </div>
+                      {walletChain?.id !== sepolia.id && (
+                        <button
+                          onClick={() => {
+                            setDeployError(null);
+                            switchChain({ chainId: sepolia.id });
+                          }}
+                          disabled={switchPending}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-400 hover:bg-amber-500 disabled:bg-gray-200 disabled:text-gray-400 text-black text-xs font-bold rounded-lg transition-colors"
+                        >
+                          {switchPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                          {switchPending ? "Switching…" : "Switch to Sepolia"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Error banner ── */}
+                {deployError && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-2">
+                    <span className="text-red-500 text-sm mt-0.5">✗</span>
+                    <p className="text-xs text-red-700">{deployError}</p>
+                  </div>
+                )}
+
+                {/* ── Contracts to deploy ── */}
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Contracts to Deploy</p>
                   {architecture?.contracts.map((c) => (
@@ -1248,21 +1315,39 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
                   ))}
                 </div>
 
-                <button
-                  onClick={() => setDeployStep("connecting")}
-                  disabled={deployStep !== "idle" || !compiled}
-                  className={`w-full flex items-center justify-center gap-2 text-sm font-bold py-3.5 rounded-xl transition-all ${
-                    deployStep === "done" ? "bg-emerald-500 text-white cursor-default"
-                    : deployStep !== "idle" ? "bg-gray-200 text-gray-400 cursor-wait"
-                    : !compiled ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-amber-400 hover:bg-amber-500 text-black shadow-lg hover:shadow-amber-200"
-                  }`}
-                >
-                  {deployStep === "idle" && <><Rocket className="w-4 h-4" /> Connect Wallet & Deploy</>}
-                  {deployStep === "connecting" && <><Loader2 className="w-4 h-4 animate-spin" /> Connecting wallet…</>}
-                  {deployStep === "deploying" && <><Loader2 className="w-4 h-4 animate-spin" /> Deploying…</>}
-                  {deployStep === "done" && <><Check className="w-4 h-4" /> Deployed Successfully</>}
-                </button>
+                {/* ── STEP 3: Deploy ── */}
+                {isConnected && walletChain?.id === sepolia.id ? (
+                  <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 mb-4">
+                    <p className="text-sm font-bold text-indigo-800 mb-1">Ready to Deploy on Sepolia</p>
+                    <p className="text-xs text-indigo-600 mb-3">
+                      Your wallet is connected and set to Sepolia. To deploy, download the project and run:
+                    </p>
+                    <div className="bg-gray-950 rounded-xl p-3 font-mono text-xs text-emerald-400 mb-3">
+                      <div className="text-gray-500 mb-1"># Install dependencies</div>
+                      <div>npm install</div>
+                      <div className="text-gray-500 mt-2 mb-1"># Add your private key to .env</div>
+                      <div>{"PRIVATE_KEY=0x..."}</div>
+                      <div className="text-gray-500 mt-2 mb-1"># Deploy to Sepolia</div>
+                      <div>npx hardhat run scripts/deploy.js --network sepolia</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setDownloadCfg((d) => ({ ...d, projectName: d.projectName || projectName, network: "sepolia" }));
+                        setDownloadModal(true);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-colors"
+                    >
+                      <Terminal className="w-4 h-4" /> Download Sepolia Project
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    disabled
+                    className="w-full flex items-center justify-center gap-2 text-sm font-bold py-3.5 rounded-xl bg-gray-100 text-gray-400 cursor-not-allowed"
+                  >
+                    <Rocket className="w-4 h-4" /> Connect Wallet & Switch to Sepolia First
+                  </button>
+                )}
               </div>
             </div>
           )}
