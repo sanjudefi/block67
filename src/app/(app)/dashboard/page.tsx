@@ -42,9 +42,9 @@ const CHIPS = [
 
 const DID_YOU_KNOW = [
   "Deploy to Ethereum, Base, Polygon and 12 other EVM chains",
-  "AI auto-fills your smart contract parameters from your description",
+  "All contracts are audited-grade, built on OpenZeppelin v5 standards",
   "Get a free subdomain like yourtoken.block67.app instantly",
-  "Connect your wallet to deploy in one click after building",
+  "Compile your contract online and download the full source package",
 ];
 
 export default function DashboardPage() {
@@ -117,7 +117,7 @@ export default function DashboardPage() {
           next?
         </h1>
         <p className="text-gray-500 text-center mb-8 text-[15px]">
-          Describe your crypto project — AI generates smart contracts and deploys to blockchain.{" "}
+          Describe your crypto project — Block67 generates audited smart contracts, compiled and ready to deploy.{" "}
           <Link href="/templates" className="text-indigo-600 hover:underline underline-offset-2">
             Browse templates →
           </Link>

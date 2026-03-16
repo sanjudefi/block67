@@ -666,12 +666,12 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
           Download
         </button>
 
-        {/* AI Chat toggle — mobile only */}
+        {/* Block67 Intelligence toggle — mobile only */}
         <button
           onClick={() => setMobileChatOpen(true)}
           className="sm:hidden flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 transition-colors"
         >
-          <MessageSquare className="w-3.5 h-3.5" /> AI Chat
+          <MessageSquare className="w-3.5 h-3.5" /> Block67
         </button>
 
         {project?.status === "ACTIVE" ? (
@@ -749,7 +749,7 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
           />
         )}
 
-        {/* ── Left: AI chat ─────────────────────────────────────────────── */}
+        {/* ── Left: Block67 Intelligence panel ──────────────────────────── */}
         <div className={[
           "flex-shrink-0 border-r border-gray-100 bg-white flex flex-col",
           // Desktop: always-visible side panel
@@ -765,7 +765,7 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
               <div className="w-5 h-5 rounded-md bg-indigo-600 flex items-center justify-center">
                 <Zap className="w-3 h-3 text-white" />
               </div>
-              <span className="text-sm font-bold text-gray-900">AI Chat</span>
+              <span className="text-sm font-bold text-gray-900">Block67 Intelligence</span>
             </div>
             <button
               onClick={() => setMobileChatOpen(false)}
@@ -784,13 +784,13 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
                   <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
                     <Zap className="w-4 h-4 text-white" />
                   </div>
-                  <span className="font-bold text-gray-900 text-sm">block67 AI</span>
+                  <span className="font-bold text-gray-900 text-sm">Block67 Intelligence</span>
                   <span className="ml-auto text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded-full font-medium">
                     ● Ready
                   </span>
                 </div>
                 <p className="text-gray-500 text-sm leading-relaxed mb-4">
-                  Describe changes you want — colors, token name, features — and I&apos;ll update your <strong className="text-gray-700">{template?.name ?? "app"}</strong> instantly.
+                  Describe the changes you want — token name, supply, features — and your <strong className="text-gray-700">{template?.name ?? "project"}</strong> contract will update instantly.
                 </p>
                 <div className="space-y-2">
                   {(template?.suggestedPrompts ?? []).slice(0, 4).map((p) => (
@@ -816,7 +816,7 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
                         <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center">
                           <Zap className="w-3.5 h-3.5 text-white" />
                         </div>
-                        <span className="text-xs font-bold text-gray-900">block67 AI</span>
+                        <span className="text-xs font-bold text-gray-900">Block67 Intelligence</span>
                       </div>
                     )}
                     {/* Structured plan */}
@@ -876,7 +876,7 @@ export default function BuilderPage({ params }: { params: { slug: string } }) {
                   <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center">
                     <Zap className="w-3.5 h-3.5 text-white animate-pulse" />
                   </div>
-                  <span className="text-xs font-bold text-gray-900">block67 AI</span>
+                  <span className="text-xs font-bold text-gray-900">Block67 Intelligence</span>
                   <span className="text-[10px] text-indigo-500 animate-pulse">Thinking…</span>
                 </div>
                 <div className="flex items-center gap-1">

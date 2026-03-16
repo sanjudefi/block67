@@ -38,14 +38,14 @@ export function SettingsClient({ user }: { user: UserData }) {
           </div>
         </section>
 
-        {/* AI key */}
+        {/* Intelligence key */}
         <section className="bg-white border border-gray-200 rounded-2xl p-6 mb-4">
           <div className="flex items-center gap-2 mb-5">
             <Key className="w-4 h-4 text-amber-500" />
-            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">AI Configuration</h2>
+            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Block67 Intelligence</h2>
           </div>
           <p className="text-gray-500 text-sm mb-4">
-            block67 uses Claude AI for code generation. Add your Anthropic API key to unlock full AI features.
+            Block67 uses its own blockchain-specialized intelligence model for contract generation. Add your API key to unlock the full feature set.
           </p>
           <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 font-mono text-xs text-gray-500 flex items-center justify-between">
             <span>ANTHROPIC_API_KEY=sk-ant-••••••••••••</span>

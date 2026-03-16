@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Shield, Code2, Zap, Download, Globe, Lock } from "lucide-react";
 
-// ── Rotating prompts (founder-voice) ─────────────────────────────────────────
+// ── Rotating prompts ──────────────────────────────────────────────────────────
 const ROTATING_PROMPTS = [
   "Launch a meme coin called PepeCoin with 1B supply and 2% tax...",
   "Deploy an NFT collection with 10,000 items and 0.05 ETH mint price...",
@@ -29,21 +30,86 @@ const LAUNCH_SCENARIOS = [
 
 // ── How it works steps ────────────────────────────────────────────────────────
 const HOW_IT_WORKS = [
-  { step: "01", title: "Describe your project", body: "Tell us what you want to launch — token, NFT, DAO, or DeFi protocol. Plain English, no code required." },
-  { step: "02", title: "AI generates contracts", body: "Block67 generates production-grade Solidity contracts with OpenZeppelin security standards, compiled and verified." },
-  { step: "03", title: "Deploy to blockchain", body: "Connect MetaMask and deploy to Ethereum, Base, Polygon or any EVM chain in one click." },
-  { step: "04", title: "Launch your app",       body: "Your Web3 frontend goes live instantly with a free subdomain — shareable in seconds." },
+  {
+    step: "01",
+    title: "Describe your project",
+    body:  "Tell us what you want to launch — token, NFT, DAO, or DeFi protocol. Plain English, no prior experience required.",
+  },
+  {
+    step: "02",
+    title: "Contracts generated",
+    body:  "Block67 generates audited, production-grade Solidity contracts built on OpenZeppelin v5 security standards.",
+  },
+  {
+    step: "03",
+    title: "Compile & download",
+    body:  "Use the built-in online Solidity compiler to get your ABI and bytecode instantly. Download the full source package.",
+  },
+  {
+    step: "04",
+    title: "Deploy to blockchain",
+    body:  "Connect MetaMask and deploy to Ethereum, Base, Polygon or any EVM chain in one click. Your app goes live instantly.",
+  },
+];
+
+// ── Security + feature highlights ────────────────────────────────────────────
+const SECURITY_FEATURES = [
+  {
+    icon:  Shield,
+    title: "Audited & Secure",
+    body:  "Every contract is built on OpenZeppelin v5 — the industry gold standard used by Uniswap, Aave and Compound.",
+    accent: "emerald",
+  },
+  {
+    icon:  Code2,
+    title: "Online Compiler",
+    body:  "Real solc compiler in the browser. Compile any contract to ABI + bytecode instantly without installing anything.",
+    accent: "indigo",
+  },
+  {
+    icon:  Download,
+    title: "Download Source",
+    body:  "Get the full Solidity source, ABI, bytecode and Hardhat deploy script as a ready-to-use zip package.",
+    accent: "violet",
+  },
+  {
+    icon:  Zap,
+    title: "One-Click Deploy",
+    body:  "Connect MetaMask and deploy directly from the browser to 12+ EVM chains. No CLI, no scripts, no DevOps.",
+    accent: "amber",
+  },
+  {
+    icon:  Lock,
+    title: "Upgradeable Proxies",
+    body:  "Full support for UUPS, Transparent and Beacon proxy patterns so you can upgrade contracts without redeploying.",
+    accent: "rose",
+  },
+  {
+    icon:  Globe,
+    title: "Instant Frontend",
+    body:  "A Web3 frontend with wallet connect ships automatically. Free subdomain on every project, shareable in seconds.",
+    accent: "sky",
+  },
 ];
 
 // ── Why Block67 bullets ───────────────────────────────────────────────────────
 const WHY_BULLETS = [
-  { icon: "✓", text: "No Solidity knowledge needed" },
-  { icon: "✓", text: "Upgradeable proxy contracts supported" },
-  { icon: "✓", text: "One-click MetaMask deployment" },
-  { icon: "✓", text: "Full Web3 frontend included" },
-  { icon: "✓", text: "Free subdomain on every project" },
-  { icon: "✓", text: "12+ EVM chains supported" },
+  "Contracts built on OpenZeppelin v5 — battle-tested & audited",
+  "Upgradeable proxy contracts supported (UUPS · Transparent · Beacon)",
+  "Online Solidity compiler — ABI + bytecode in seconds",
+  "Download full source package with Hardhat deploy scripts",
+  "One-click MetaMask deployment to 12+ EVM chains",
+  "Full Web3 frontend + free subdomain on every project",
 ];
+
+const ACCENT: Record<string, string> = {
+  emerald: "bg-emerald-50 text-emerald-600 border-emerald-100",
+  indigo:  "bg-indigo-50  text-indigo-600  border-indigo-100",
+  violet:  "bg-violet-50  text-violet-600  border-violet-100",
+  amber:   "bg-amber-50   text-amber-600   border-amber-100",
+  rose:    "bg-rose-50    text-rose-600    border-rose-100",
+  sky:     "bg-sky-50     text-sky-600     border-sky-100",
+};
 
 export default function HomePage() {
   const router = useRouter();
@@ -51,7 +117,6 @@ export default function HomePage() {
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [visible, setVisible]               = useState(true);
 
-  // Cycle rotating placeholder
   useEffect(() => {
     const id = setInterval(() => {
       setVisible(false);
@@ -77,10 +142,10 @@ export default function HomePage() {
       ════════════════════════════════════════════════════════════════════ */}
       <section className="flex flex-col items-center justify-center px-4 pt-20 pb-16 text-center">
 
-        {/* Badge */}
-        <div className="inline-flex items-center gap-2 text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-4 py-1.5 rounded-full mb-8 tracking-wide">
-          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-          Powered by Claude AI · Solidity 0.8.20 · OpenZeppelin v5
+        {/* Trust badge */}
+        <div className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-4 py-1.5 rounded-full mb-8 tracking-wide">
+          <Shield className="w-3.5 h-3.5" />
+          Block67 Intelligence · Audited contracts · OpenZeppelin v5 · Solidity 0.8.20
         </div>
 
         {/* Headline */}
@@ -92,8 +157,8 @@ export default function HomePage() {
         </h1>
 
         <p className="text-lg md:text-xl text-gray-500 max-w-xl leading-relaxed mb-10">
-          Generate smart contracts, deploy tokens, and launch Web3 apps
-          instantly — no Solidity experience required.
+          Generate secure, audited smart contracts — compile, download
+          and deploy to blockchain without writing a single line of code.
         </p>
 
         {/* ── Prompt box ────────────────────────────────────────────────── */}
@@ -162,7 +227,7 @@ export default function HomePage() {
             <button
               key={s.label}
               onClick={() => handleSubmit(s.prompt)}
-              className="group flex flex-col items-center gap-2 bg-white hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300 rounded-xl px-3 py-4 transition-all duration-150 text-left"
+              className="group flex flex-col items-center gap-2 bg-white hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300 rounded-xl px-3 py-4 transition-all duration-150"
             >
               <span className="text-2xl">{s.emoji}</span>
               <span className="text-xs font-semibold text-gray-700 group-hover:text-indigo-700 text-center leading-tight">{s.label}</span>
@@ -172,24 +237,27 @@ export default function HomePage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          HOW IT WORKS
+          SECURITY + FEATURES GRID
       ════════════════════════════════════════════════════════════════════ */}
       <section className="bg-gray-50 border-y border-gray-100 px-4 py-20">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 text-center mb-3">
-            How it works
-          </h2>
-          <p className="text-gray-500 text-center mb-12 max-w-md mx-auto">
-            Block67 handles the hard parts — you focus on launching.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {HOW_IT_WORKS.map((step) => (
-              <div key={step.step} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-xs font-bold mb-4">
-                  {step.step}
+          <div className="text-center mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
+              Secure. Compiled. Deployed.
+            </h2>
+            <p className="text-gray-500 max-w-md mx-auto text-sm leading-relaxed">
+              Every contract Block67 generates is audited-grade, compiled with
+              real solc in the browser, and downloadable — ready for production.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {SECURITY_FEATURES.map((f) => (
+              <div key={f.title} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className={`w-9 h-9 rounded-xl border flex items-center justify-center mb-4 ${ACCENT[f.accent]}`}>
+                  <f.icon className="w-4 h-4" />
                 </div>
-                <h3 className="font-bold text-gray-900 text-sm mb-1.5">{step.title}</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">{step.body}</p>
+                <h3 className="font-bold text-gray-900 text-sm mb-1.5">{f.title}</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">{f.body}</p>
               </div>
             ))}
           </div>
@@ -197,10 +265,33 @@ export default function HomePage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          WHY FOUNDERS USE BLOCK67  +  FINAL CTA
+          HOW IT WORKS
       ════════════════════════════════════════════════════════════════════ */}
       <section className="px-4 py-20 max-w-4xl mx-auto w-full">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+        <div className="text-center mb-12">
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">How it works</h2>
+          <p className="text-gray-500 max-w-sm mx-auto text-sm">
+            Block67 handles the hard parts — you focus on launching.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {HOW_IT_WORKS.map((step) => (
+            <div key={step.step} className="relative">
+              <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-xs font-bold mb-4">
+                {step.step}
+              </div>
+              <h3 className="font-bold text-gray-900 text-sm mb-1.5">{step.title}</h3>
+              <p className="text-xs text-gray-500 leading-relaxed">{step.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          WHY FOUNDERS USE BLOCK67  +  CTA
+      ════════════════════════════════════════════════════════════════════ */}
+      <section className="bg-gray-50 border-t border-gray-100 px-4 py-20">
+        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
 
           {/* Left — value props */}
           <div>
@@ -209,16 +300,16 @@ export default function HomePage() {
             </h2>
             <p className="text-gray-500 text-sm leading-relaxed mb-7">
               Whether you&apos;re launching your first token or building a full
-              DeFi protocol, Block67 generates production-grade contracts with
-              OpenZeppelin security — and deploys them in one click.
+              DeFi protocol, Block67 gives you production-grade, audited contracts
+              with an online compiler and one-click deployment.
             </p>
             <ul className="space-y-2.5">
-              {WHY_BULLETS.map((b) => (
-                <li key={b.text} className="flex items-center gap-2.5 text-sm text-gray-700">
-                  <span className="w-5 h-5 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0">
-                    {b.icon}
+              {WHY_BULLETS.map((text) => (
+                <li key={text} className="flex items-start gap-2.5 text-sm text-gray-700">
+                  <span className="w-5 h-5 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5">
+                    ✓
                   </span>
-                  {b.text}
+                  {text}
                 </li>
               ))}
             </ul>
@@ -226,10 +317,12 @@ export default function HomePage() {
 
           {/* Right — CTA card */}
           <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-8 text-white text-center shadow-xl">
-            <div className="text-4xl mb-4">⚡</div>
+            <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Shield className="w-7 h-7 text-white" />
+            </div>
             <h3 className="text-xl font-bold mb-2">Ready to launch?</h3>
             <p className="text-indigo-200 text-sm mb-6 leading-relaxed">
-              Join founders shipping crypto projects on Block67.
+              Join founders shipping secure, audited crypto projects on Block67.
               No credit card required.
             </p>
             <button
@@ -238,9 +331,13 @@ export default function HomePage() {
             >
               Start Launching Free →
             </button>
-            <p className="mt-4 text-indigo-300 text-xs">
-              Vercel for crypto projects.
-            </p>
+            <div className="mt-5 flex items-center justify-center gap-4 text-indigo-300 text-[11px]">
+              <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> Audited contracts</span>
+              <span>·</span>
+              <span className="flex items-center gap-1"><Code2 className="w-3 h-3" /> Online compiler</span>
+              <span>·</span>
+              <span className="flex items-center gap-1"><Download className="w-3 h-3" /> Downloadable</span>
+            </div>
           </div>
         </div>
       </section>

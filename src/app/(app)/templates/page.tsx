@@ -51,7 +51,7 @@ export default function TemplatesPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-1">Templates</h1>
           <p className="text-gray-500 text-sm">
-            Pick a template to start building. AI will help you customize everything.
+            Pick a template to start. Block67 generates audited, production-grade contracts instantly.
           </p>
         </div>
 
