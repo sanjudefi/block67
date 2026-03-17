@@ -168,7 +168,7 @@ function CopyBtn({ text }: { text: string }) {
 
 // ── Wallet Hook ───────────────────────────────────────────────────────────────
 
-function useWallet(requiredChainId: number) {
+function useWallet(requiredChainId: number, projectSlug: string) {
   const [wallet, setWallet] = useState<WalletState>({ address: "", chainId: null, connected: false });
   const [error,  setError]  = useState("");
 
@@ -193,15 +193,32 @@ function useWallet(requiredChainId: number) {
 
   const connect = useCallback(async () => {
     setError("");
-    if (!window.ethereum) { setError("MetaMask not found. Install it at metamask.io."); return; }
+    if (typeof window === "undefined") return;
+    if (!window.ethereum) {
+      // Mobile: deep-link into MetaMask's in-app browser where window.ethereum is injected
+      if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        window.location.href = `https://metamask.app.link/dapp/${window.location.href.replace(/^https?:\/\//, "")}`;
+        return;
+      }
+      setError("MetaMask not found. Install it at metamask.io.");
+      return;
+    }
     try {
       const accs: string[] = await window.ethereum.request({ method: "eth_requestAccounts" });
       const chainHex: string = await window.ethereum.request({ method: "eth_chainId" });
       setWallet({ address: accs[0] ?? "", chainId: parseInt(chainHex, 16), connected: !!accs[0] });
+      // Record this wallet connection in the DB (fire-and-forget)
+      if (accs[0] && projectSlug) {
+        fetch(`/api/site/${projectSlug}/connect`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ walletAddress: accs[0] }),
+        }).catch(() => {/* non-critical */});
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Connection failed");
     }
-  }, []);
+  }, [projectSlug]);
 
   const switchChain = useCallback(async () => {
     if (!window.ethereum) return;
@@ -222,10 +239,10 @@ function useWallet(requiredChainId: number) {
 
 // ── ERC-20 / Meme Token dApp ──────────────────────────────────────────────────
 
-function ERC20DApp({ d, config }: { d: DeploymentInfo; config: Record<string, string> }) {
+function ERC20DApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
   const isMeme = config._templateKey === "meme-token";
   const abi    = (d.contractAbi as string[] | null) ?? ERC20_ABI;
-  const { wallet, error: wErr, connect, switchChain, onWrongChain } = useWallet(d.evmChainId);
+  const { wallet, error: wErr, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
 
   const [loading, setLoading] = useState(true);
   const [info,    setInfo]    = useState({ name: config.tokenName || "Token", symbol: config.symbol || "TKN", supply: "0", decimals: 18, owner: "" });
@@ -413,9 +430,9 @@ function ERC20DApp({ d, config }: { d: DeploymentInfo; config: Record<string, st
 
 // ── NFT Mint dApp ─────────────────────────────────────────────────────────────
 
-function NFTDApp({ d, config }: { d: DeploymentInfo; config: Record<string, string> }) {
+function NFTDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
   const abi = (d.contractAbi as string[] | null) ?? ERC721_ABI;
-  const { wallet, error: wErr, connect, switchChain, onWrongChain } = useWallet(d.evmChainId);
+  const { wallet, error: wErr, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
 
   const [loading,    setLoading]    = useState(true);
   const [info,       setInfo]       = useState({ name: config.collectionName || "NFT", symbol: config.symbol || "NFT", maxSupply: 0n, mintPrice: 0n, minted: 0n, saleActive: false, owner: "" });
@@ -607,9 +624,9 @@ function NFTDApp({ d, config }: { d: DeploymentInfo; config: Record<string, stri
 
 // ── DAO Governance dApp ───────────────────────────────────────────────────────
 
-function DAODApp({ d, config }: { d: DeploymentInfo; config: Record<string, string> }) {
+function DAODApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
   const abi = (d.contractAbi as string[] | null) ?? DAO_ABI;
-  const { wallet, error: wErr, connect, switchChain, onWrongChain } = useWallet(d.evmChainId);
+  const { wallet, error: wErr, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
 
   const [loading,  setLoading]  = useState(true);
   const [info,     setInfo]     = useState({ name: config.daoName || "DAO", symbol: config.tokenName || "GOV", supply: "0", owner: "" });
@@ -739,9 +756,9 @@ function DAODApp({ d, config }: { d: DeploymentInfo; config: Record<string, stri
 
 // ── Staking dApp ──────────────────────────────────────────────────────────────
 
-function StakingDApp({ d, config }: { d: DeploymentInfo; config: Record<string, string> }) {
+function StakingDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
   const abi = (d.contractAbi as string[] | null) ?? STAKING_ABI;
-  const { wallet, error: wErr, connect, switchChain, onWrongChain } = useWallet(d.evmChainId);
+  const { wallet, error: wErr, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
 
   const [loading,  setLoading]  = useState(true);
   const [info,     setInfo]     = useState({ apyBps: 0, lockSecs: 0, totalStaked: "0" });
@@ -997,7 +1014,7 @@ export function ProjectDApp({ data }: { data: ProjectData }) {
     );
   }
 
-  const props = { d, config };
+  const props = { d, config, projectSlug: data.slug };
   switch (templateKey) {
     case "erc20-token":      return <ERC20DApp    {...props} />;
     case "meme-token":       return <ERC20DApp    {...props} />;

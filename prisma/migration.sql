@@ -129,6 +129,20 @@ CREATE UNIQUE INDEX "block67_domain_configs_domain_key"    ON "block67_domain_co
 -- ── contractAbi column (added after initial deploy) ──────────────────────────
 ALTER TABLE "block67_deployments" ADD COLUMN IF NOT EXISTS "contractAbi" JSONB;
 
+-- ── block67_dapp_users (end-users who connect wallets to published dApps) ─────
+CREATE TABLE IF NOT EXISTS "block67_dapp_users" (
+    "id"            TEXT         NOT NULL,
+    "projectId"     TEXT         NOT NULL,
+    "walletAddress" TEXT         NOT NULL,
+    "firstSeenAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastSeenAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "block67_dapp_users_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "block67_dapp_users_projectId_walletAddress_key"
+    ON "block67_dapp_users"("projectId", "walletAddress");
+ALTER TABLE "block67_dapp_users" ADD CONSTRAINT "block67_dapp_users_projectId_fkey"
+    FOREIGN KEY ("projectId") REFERENCES "block67_projects"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
 -- ── Foreign keys ──────────────────────────────────────────────────────────────
 ALTER TABLE "block67_templates"     ADD CONSTRAINT "block67_templates_authorId_fkey"
     FOREIGN KEY ("authorId")    REFERENCES "block67_users"("id")      ON DELETE RESTRICT ON UPDATE CASCADE;
