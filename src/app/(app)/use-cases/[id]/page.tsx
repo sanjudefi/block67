@@ -103,11 +103,12 @@ function UseCaseDetail() {
   const t = BUILTIN_TEMPLATES.find(x => x.id === params.id);
   if (!t) { notFound(); return null; }
 
+  const templateId = t.id;
   const [selectedPrompt, setSelectedPrompt] = useState(t.suggestedPrompts[0] ?? "");
 
   function implement() {
     const encoded = encodeURIComponent(selectedPrompt);
-    router.push(`/projects/new?template=${t.id}&prompt=${encoded}`);
+    router.push(`/projects/new?template=${templateId}&prompt=${encoded}`);
   }
 
   return (
