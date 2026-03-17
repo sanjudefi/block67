@@ -135,6 +135,10 @@ function getAccent(config: Record<string, string>) {
   return config.accentColor || config.brandColor || "#6366f1";
 }
 
+function getBg(config: Record<string, string>) {
+  return config._bgColor || "#0a0a0f";
+}
+
 // ── Shared UI ─────────────────────────────────────────────────────────────────
 
 function NetBadge({ chainName }: { chainName: string }) {
@@ -601,11 +605,12 @@ function ERC20DApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Reco
   const isMintable = config.mintable === "true" || isMeme;
 
   const accent = getAccent(config);
+  const bg     = getBg(config);
   const rgb    = hexToRgb(accent);
   const desc   = config.description || config.tokenDescription || "";
 
   return (
-    <div className="min-h-screen" style={{ background: "#0a0a0f", color: "#fff" }}>
+    <div className="min-h-screen" style={{ background: bg, color: "#fff" }}>
       <SiteNav name={info.name} symbol={info.symbol} chainName={d.chainName} accent={accent}
         wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
 
@@ -791,11 +796,12 @@ function NFTDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record
   const isOwner   = wallet.connected && info.owner && wallet.address.toLowerCase() === info.owner.toLowerCase();
 
   const accent = getAccent(config);
+  const bg     = getBg(config);
   const rgb    = hexToRgb(accent);
   const desc   = config.description || config.collectionDescription || "";
 
   return (
-    <div className="min-h-screen" style={{ background: "#0a0a0f", color: "#fff" }}>
+    <div className="min-h-screen" style={{ background: bg, color: "#fff" }}>
       <SiteNav name={info.name} symbol={info.symbol} chainName={d.chainName} accent={accent}
         wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
 
@@ -965,11 +971,12 @@ function DAODApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record
   };
 
   const accent = getAccent(config);
+  const bg     = getBg(config);
   const rgb    = hexToRgb(accent);
   const desc   = config.description || config.daoDescription || "";
 
   return (
-    <div className="min-h-screen" style={{ background: "#0a0a0f", color: "#fff" }}>
+    <div className="min-h-screen" style={{ background: bg, color: "#fff" }}>
       <SiteNav name={info.name} symbol={info.symbol} chainName={d.chainName} accent={accent}
         wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
 
@@ -1129,12 +1136,13 @@ function StakingDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Re
   };
 
   const accent = getAccent(config);
+  const bg     = getBg(config);
   const rgb    = hexToRgb(accent);
   const desc   = config.description || config.stakingDescription || "";
   const stakingName = config.tokenName || "Staking";
 
   return (
-    <div className="min-h-screen" style={{ background: "#0a0a0f", color: "#fff" }}>
+    <div className="min-h-screen" style={{ background: bg, color: "#fff" }}>
       <SiteNav name={`${stakingName} Pool`} symbol={`${apy}% APY`} chainName={d.chainName} accent={accent}
         wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
 
@@ -1256,12 +1264,13 @@ function ContractInfo({ d, accent }: { d: DeploymentInfo; accent: string }) {
 export function ProjectDApp({ data }: { data: ProjectData }) {
   const { deployment: d, templateKey, config } = data;
   const accent = getAccent(config);
+  const bg     = getBg(config);
   const rgb    = hexToRgb(accent);
 
   if (!d || !d.contractAddress) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center"
-        style={{ background: "#0a0a0f" }}>
+        style={{ background: bg }}>
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[250px] rounded-full opacity-15 blur-3xl"
             style={{ background: `radial-gradient(ellipse, rgba(${rgb},0.6) 0%, transparent 70%)` }} />
