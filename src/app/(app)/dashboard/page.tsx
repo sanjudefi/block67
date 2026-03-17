@@ -10,9 +10,10 @@ import Link from "next/link";
 import { PageLayout } from "@/components/PageLayout";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
 import { UpgradeModal } from "@/components/UpgradeModal";
+import { DomainModal }  from "@/components/DomainModal";
 import {
   Clock, MoreHorizontal, Trash2, Zap, Settings2, ExternalLink,
-  Plus, Palette, ArrowRight,
+  Plus, Palette, ArrowRight, Globe,
 } from "lucide-react";
 
 function timeAgo(d: string) {
@@ -39,6 +40,7 @@ export default function DashboardPage() {
   const [planLimit,       setPlanLimit]       = useState(3);
   const [isPro,           setIsPro]           = useState(false);
   const [showUpgrade,     setShowUpgrade]     = useState(false);
+  const [domainProject,   setDomainProject]   = useState<{ id: string; name: string; slug: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/projects")
@@ -194,6 +196,11 @@ export default function DashboardPage() {
                                 className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full">
                                 <Zap className="w-3.5 h-3.5" /> Open Builder
                               </button>
+                              <button
+                                onClick={() => { setOpenMenu(null); setDomainProject({ id: project.id, name: project.name, slug: project.slug }); }}
+                                className="flex items-center gap-2 px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 w-full">
+                                <Globe className="w-3.5 h-3.5" /> Connect Domain
+                              </button>
                               <button onClick={() => deleteProject(project.id)}
                                 className="flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 w-full">
                                 <Trash2 className="w-3.5 h-3.5" /> Delete
@@ -280,6 +287,16 @@ export default function DashboardPage() {
           onUpgraded={() => { setShowUpgrade(false); setPlanLimit(6); setIsPro(true); }}
           projectCount={projects.length}
           freeLimit={3}
+        />
+      )}
+
+      {domainProject && (
+        <DomainModal
+          projectId={domainProject.id}
+          projectName={domainProject.name}
+          projectSlug={domainProject.slug}
+          onClose={() => setDomainProject(null)}
+          onUpgrade={() => { setDomainProject(null); setShowUpgrade(true); }}
         />
       )}
     </PageLayout>

@@ -12,11 +12,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { db as prisma } from "@/lib/db/index";
-import { PLANS } from "@/lib/upgrade/plans";
-import type { PlanKey } from "@/lib/upgrade/plans";
+// PlanKey intentionally not imported — accept any string plan slug
 
-const FREE_LIMIT = 3;
-const PRO_LIMIT  = 6;
+const FREE_LIMIT         = 3;
+const PRO_LIMIT          = 6;
+const FREE_DOMAIN_LIMIT  = 0;
+const PRO_DOMAIN_LIMIT   = 6;
 
 export async function GET(_req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -27,11 +28,32 @@ export async function GET(_req: NextRequest) {
   });
 
   const isActive = record && new Date(record.expiresAt) > new Date();
+
+  // Try to get plan config from DB for accurate limits
+  let projectLimit = isActive ? PRO_LIMIT       : FREE_LIMIT;
+  let domainLimit  = isActive ? PRO_DOMAIN_LIMIT : FREE_DOMAIN_LIMIT;
+  let frontendChangesPerDay = isActive ? 50 : 10;
+  let contractChangesPerDay = isActive ? 10 : 2;
+
+  try {
+    const planSlug = isActive ? "premium" : "free";
+    const dbPlan = await prisma.plan.findUnique({ where: { slug: planSlug } });
+    if (dbPlan) {
+      projectLimit          = dbPlan.projectLimit;
+      domainLimit           = dbPlan.domainLimit;
+      frontendChangesPerDay = dbPlan.frontendChangesPerDay;
+      contractChangesPerDay = dbPlan.contractChangesPerDay;
+    }
+  } catch { /* use hardcoded defaults */ }
+
   return NextResponse.json({
-    plan:      isActive ? "pro" : "free",
-    limit:     isActive ? PRO_LIMIT : FREE_LIMIT,
-    expiresAt: record?.expiresAt ?? null,
-    txHash:    isActive ? record.nonce : null,
+    plan:                  isActive ? "premium" : "free",
+    limit:                 projectLimit,
+    domainLimit,
+    frontendChangesPerDay,
+    contractChangesPerDay,
+    expiresAt:             record?.expiresAt ?? null,
+    txHash:                isActive ? record!.nonce : null,
   });
 }
 
@@ -39,17 +61,20 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await req.json() as { txHash: string; plan: PlanKey; walletAddress: string };
+  const body = await req.json() as { txHash: string; plan: string; walletAddress: string };
   const { txHash, plan, walletAddress } = body;
 
-  if (!txHash || !plan || !PLANS[plan]) {
+  if (!txHash || !plan) {
     return NextResponse.json({ error: "txHash and plan required" }, { status: 400 });
   }
 
-  const days      = PLANS[plan].days;
+  // Determine expiry days: premium/yearly = 365, monthly = 30, enterprise = 30
+  let days = 365;
+  if (plan === "monthly")    days = 30;
+  else if (plan === "yearly") days = 365;
+
   const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
-  // Upsert upgrade record in AuthNonce table (creative reuse — no migration needed)
   await prisma.authNonce.upsert({
     where:  { address: `upgrade:${session.user.id}` },
     update: { nonce: txHash, expiresAt },
@@ -58,5 +83,5 @@ export async function POST(req: NextRequest) {
 
   console.info(`[upgrade] user=${session.user.id} wallet=${walletAddress} plan=${plan} tx=${txHash} expires=${expiresAt.toISOString()}`);
 
-  return NextResponse.json({ ok: true, plan: "pro", limit: PRO_LIMIT, expiresAt });
+  return NextResponse.json({ ok: true, plan: "premium", limit: PRO_LIMIT, domainLimit: PRO_DOMAIN_LIMIT, expiresAt });
 }

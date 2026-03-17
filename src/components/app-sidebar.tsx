@@ -74,6 +74,16 @@ export function AppSidebar({
             >
               <span>👤</span> Users
             </Link>
+            <Link
+              href="/admin/plans"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                pathname.startsWith("/admin/plans")
+                  ? "bg-indigo-600/20 text-indigo-400"
+                  : "text-gray-400 hover:text-white hover:bg-gray-800"
+              }`}
+            >
+              <span>★</span> Plans
+            </Link>
           </>
         )}
       </nav>

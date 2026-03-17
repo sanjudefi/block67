@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageLayout } from "@/components/PageLayout";
-import { Globe, Key, User, Link2, Unlink, Save, AlertCircle, Shield } from "lucide-react";
+import { Globe, Key, User, Link2, Unlink, Save, AlertCircle, Shield, Star, Check, Zap } from "lucide-react";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 interface UserData {
   id?:            string | null;
@@ -12,13 +13,32 @@ interface UserData {
   role?:          string;
 }
 
+interface PlanStatus {
+  plan: "free" | "premium";
+  limit: number;
+  domainLimit: number;
+  frontendChangesPerDay: number;
+  contractChangesPerDay: number;
+  expiresAt: string | null;
+  txHash:    string | null;
+}
+
 export function SettingsClient({ user: initial }: { user: UserData }) {
-  const [user,    setUser]    = useState(initial);
-  const [name,    setName]    = useState(initial.name  ?? "");
-  const [email,   setEmail]   = useState(initial.email ?? "");
-  const [saving,  setSaving]  = useState(false);
-  const [saveMsg, setSaveMsg] = useState("");
-  const [saveErr, setSaveErr] = useState("");
+  const [user,        setUser]        = useState(initial);
+  const [name,        setName]        = useState(initial.name  ?? "");
+  const [email,       setEmail]       = useState(initial.email ?? "");
+  const [saving,      setSaving]      = useState(false);
+  const [saveMsg,     setSaveMsg]     = useState("");
+  const [saveErr,     setSaveErr]     = useState("");
+  const [planStatus,  setPlanStatus]  = useState<PlanStatus | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/upgrade")
+      .then(r => r.json())
+      .then(d => setPlanStatus(d as PlanStatus))
+      .catch(() => {});
+  }, []);
 
   // Wallet linking
   const [walletAddr,    setWalletAddr]    = useState("");
@@ -225,21 +245,124 @@ export function SettingsClient({ user: initial }: { user: UserData }) {
           </div>
         </section>
 
+        {/* Plan & Billing */}
+        <section className="bg-white border border-gray-200 rounded-2xl p-6 mb-4">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <Star className="w-4 h-4 text-indigo-500" />
+              <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Plan & Billing</h2>
+            </div>
+            {planStatus?.plan === "premium" && (
+              <span className="text-[10px] bg-indigo-100 text-indigo-600 font-bold px-2 py-0.5 rounded-full">PREMIUM</span>
+            )}
+          </div>
+
+          {planStatus ? (
+            planStatus.plan === "premium" ? (
+              <div className="space-y-3">
+                <div className="bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                      <Star className="w-4 h-4 text-white fill-white" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm">Premium Plan</p>
+                      {planStatus.expiresAt && (
+                        <p className="text-xs text-gray-500">
+                          Expires {new Date(planStatus.expiresAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      [`${planStatus.limit} projects`, ""],
+                      [`${planStatus.domainLimit} custom domains`, ""],
+                      [`${planStatus.frontendChangesPerDay} frontend changes/day`, ""],
+                      [`${planStatus.contractChangesPerDay} contract changes/day`, ""],
+                    ].map(([label]) => (
+                      <div key={label} className="flex items-center gap-1.5">
+                        <Check className="w-3 h-3 text-indigo-500 flex-shrink-0" />
+                        <span className="text-xs text-gray-700">{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {planStatus.txHash && (
+                  <a href={`https://etherscan.io/tx/${planStatus.txHash}`} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-gray-400 hover:text-indigo-500 flex items-center gap-1">
+                    View payment transaction ↗
+                  </a>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                  <p className="font-semibold text-gray-700 text-sm mb-1">Free Plan</p>
+                  <p className="text-xs text-gray-500">{planStatus.limit} projects · No custom domains</p>
+                </div>
+                <div className="bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 rounded-xl p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm">Upgrade to Premium</p>
+                      <p className="text-xs text-indigo-600 mt-0.5">11 months + 2 months free</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-indigo-600">$99.99</p>
+                      <p className="text-[10px] text-gray-400">$9.99/mo</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 mb-4">
+                    {["6 projects", "6 custom domains", "50 frontend changes/day", "Priority support"].map(f => (
+                      <div key={f} className="flex items-center gap-1.5">
+                        <Check className="w-3 h-3 text-indigo-400 flex-shrink-0" />
+                        <span className="text-xs text-gray-600">{f}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => setShowUpgrade(true)}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-colors">
+                    <Zap className="w-3.5 h-3.5" /> Upgrade Now
+                  </button>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="h-24 bg-gray-100 rounded-xl animate-pulse" />
+          )}
+        </section>
+
         {/* Custom domain */}
         <section className="bg-white border border-gray-200 rounded-2xl p-6">
           <div className="flex items-center gap-2 mb-5">
             <Globe className="w-4 h-4 text-emerald-500" />
-            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Custom Domain</h2>
+            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Custom Domains</h2>
           </div>
           <p className="text-gray-500 text-sm mb-4">
-            Connect a custom domain to any of your published projects.
+            Connect custom domains to your published projects from the project's 3-dot menu on the dashboard.
           </p>
           <div className="bg-gray-50 rounded-xl px-4 py-3 border border-gray-200 font-mono text-xs text-gray-500">
             yourproject.block67.app → <span className="text-gray-700">your-domain.com</span>
           </div>
-          <p className="text-xs text-gray-400 mt-2">Custom domain support coming soon.</p>
+          {planStatus?.plan !== "premium" && (
+            <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+              <Star className="w-3 h-3" /> Premium feature — upgrade to connect up to 6 custom domains.
+            </p>
+          )}
         </section>
       </div>
+
+      {showUpgrade && (
+        <UpgradeModal
+          onClose={() => setShowUpgrade(false)}
+          onUpgraded={() => {
+            setShowUpgrade(false);
+            setPlanStatus(prev => prev ? { ...prev, plan: "premium", limit: 6, domainLimit: 6 } : null);
+          }}
+          projectCount={0}
+          freeLimit={3}
+        />
+      )}
     </PageLayout>
   );
 }

@@ -191,6 +191,31 @@ model DomainConfig {
   @@map("block67_domain_configs")
 }
 
+// ─── PLANS (admin-configurable subscription plans) ────────────────────────────
+
+model Plan {
+  id                    String   @id @default(cuid())
+  slug                  String   @unique             // "free" | "premium" | "enterprise"
+  name                  String
+  priceMonthly          Decimal  @db.Decimal(10, 2)  // per-month price shown to user
+  totalPrice            Decimal  @db.Decimal(10, 2)  // total charged (e.g. 99.99/year)
+  billingNote           String?                      // "11 months + 2 months free"
+  projectLimit          Int
+  domainLimit           Int
+  frontendChangesPerDay Int
+  contractChangesPerDay Int
+  paymentAddress        String?                      // ETH address for MetaMask payment
+  paymentAmountEth      String?                      // ETH amount string e.g. "0.033"
+  testnetsEnabled       Boolean  @default(false)
+  isActive              Boolean  @default(true)
+  sortOrder             Int      @default(0)
+  features              Json?                        // string[] bullet list
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("block67_plans")
+}
+
 // ─── DAPP USERS (end-users who connect to a published dApp) ───────────────────
 
 model DAppUser {
