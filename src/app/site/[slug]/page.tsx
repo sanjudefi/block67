@@ -9,7 +9,8 @@
  */
 export const dynamic = "force-dynamic";
 
-import { notFound }      from "next/navigation";
+import { unstable_noStore } from "next/cache";
+import { notFound }         from "next/navigation";
 import { db as prisma }  from "@/lib/db/index";
 import type { Metadata } from "next";
 import { ProjectDApp }   from "./dapp";
@@ -62,6 +63,11 @@ async function getProject(slug: string) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default async function SitePage({ params }: { params: { slug: string } }) {
+  // Opt out of ALL caching — every request fetches fresh data from DB.
+  // This is critical: without this, Next.js caches the RSC payload and
+  // the preview iframe shows stale paramValues even after PATCH saves.
+  unstable_noStore();
+
   const project = await getProject(params.slug);
 
   if (!project || project.status === "ARCHIVED") notFound();

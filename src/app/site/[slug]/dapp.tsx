@@ -1268,20 +1268,53 @@ export function ProjectDApp({ data }: { data: ProjectData }) {
   const rgb    = hexToRgb(accent);
 
   if (!d || !d.contractAddress) {
+    // Show a full site preview so the frontend editor can display sections,
+    // colors, team, FAQ etc. even before the contract is deployed.
+    // A yellow banner indicates this is preview/draft mode.
+    const name = config.tokenName || config.collectionName || config.daoName || data.name;
+    const symbol = config.symbol || config.tokenSymbol || "TKN";
+    const desc   = config.description || "";
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center"
-        style={{ background: bg }}>
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[250px] rounded-full opacity-15 blur-3xl"
-            style={{ background: `radial-gradient(ellipse, rgba(${rgb},0.6) 0%, transparent 70%)` }} />
+      <div className="min-h-screen" style={{ background: bg, color: "#fff" }}>
+        {/* Preview mode banner */}
+        <div className="w-full text-center text-xs font-semibold py-2 px-4 sticky top-0 z-50"
+          style={{ background: "rgba(245,158,11,0.92)", backdropFilter: "blur(8px)", color: "#000" }}>
+          ⚡ Preview mode — contract not yet deployed · Wallet features activate after deploy
         </div>
-        <div className="relative w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
-          style={{ background: `rgba(${rgb},0.15)`, border: `1px solid rgba(${rgb},0.3)` }}>
-          <Zap className="w-8 h-8" style={{ color: accent }} />
-        </div>
-        <h1 className="text-3xl font-extrabold text-white mb-3">{data.name}</h1>
-        <p className="text-white/50 mb-2">This project hasn&apos;t been deployed to a blockchain yet.</p>
-        <p className="text-xs text-white/30">The contract will appear here once the owner deploys it.</p>
+
+        {/* Hero */}
+        <section className="relative overflow-hidden pt-16 pb-14 px-4 text-center">
+          <div className="absolute inset-0 pointer-events-none" aria-hidden>
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full opacity-20 blur-3xl"
+              style={{ background: `radial-gradient(ellipse, rgba(${rgb},0.6) 0%, transparent 70%)` }} />
+          </div>
+          <div className="relative max-w-2xl mx-auto">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full border mb-6"
+              style={{ borderColor: `rgba(${rgb},0.4)`, background: `rgba(${rgb},0.1)`, color: accent }}>
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: accent }} />
+              Draft · Deploy to go live
+            </div>
+            <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight mb-2">
+              <span className="bg-clip-text text-transparent"
+                style={{ backgroundImage: `linear-gradient(135deg, #fff 30%, rgba(${rgb},0.9) 100%)` }}>
+                {name}
+              </span>
+            </h1>
+            {symbol && <p className="text-2xl font-bold mb-4" style={{ color: accent }}>${symbol}</p>}
+            {desc && <p className="text-white/60 text-base leading-relaxed mb-8 max-w-lg mx-auto">{desc}</p>}
+            <button disabled
+              className="px-6 py-3 rounded-xl font-bold text-white text-sm opacity-40 cursor-not-allowed"
+              style={{ background: accent }}>
+              Connect Wallet (deploy first)
+            </button>
+          </div>
+        </section>
+
+        {/* All editable sections — visible in preview */}
+        <SiteSections config={config} accent={accent} />
+        <SocialSection config={config} accent={accent} />
+        <SiteFooter name={name} accent={accent} />
+        <WhatsAppFloat number={config._whatsapp || ""} />
       </div>
     );
   }
