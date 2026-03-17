@@ -167,10 +167,11 @@ function FieldInput({ value, onChange, placeholder, type = "text", className = "
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export function FrontendClient({
-  projectId, projectSlug, projectName, templateKey, config: initialConfig, isLive,
+  projectId, projectSlug, projectName, templateKey, config: initialConfig, isLive, siteUrl,
 }: {
   projectId: string; projectSlug: string; projectName: string;
   templateKey: string; config: Record<string, string>; isLive: boolean;
+  siteUrl?: string;
 }) {
   // ── State ──────────────────────────────────────────────────────────────────
   const [savedConfig, setSavedConfig] = useState<Record<string, string>>(initialConfig);
@@ -209,7 +210,9 @@ export function FrontendClient({
   const activeSections = (merged._sections || "").split(",").map(s => s.trim()).filter(Boolean);
   const quickFields    = QUICK_FIELDS[templateKey] ?? QUICK_FIELDS["erc20-token"];
   const hasDirty       = Object.keys(dirty).length > 0;
-  const liveUrl        = `https://${projectSlug}.block67.app`;
+  // Use the server-computed siteUrl (correct for all environments — Vercel preview, prod, localhost).
+  // Fall back to /site/slug if somehow not passed.
+  const liveUrl        = siteUrl ?? `/site/${projectSlug}`;
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
@@ -298,8 +301,8 @@ export function FrontendClient({
   const publishLive = useCallback(async () => {
     setPublishing(true);
     try {
-      // Save any pending changes first
-      if (hasDirty) await doSave();
+      // Always save current state first (ensures DB has latest before going live)
+      await doSave();
       const res = await fetch(`/api/projects/${projectId}`, {
         method:  "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -307,7 +310,7 @@ export function FrontendClient({
       });
       if (res.ok) setLive(true);
     } finally { setPublishing(false); }
-  }, [doSave, hasDirty, projectId]);
+  }, [doSave, projectId]);
 
   const sendMsg = useCallback(async () => {
     const text = input.trim();
@@ -643,9 +646,9 @@ export function FrontendClient({
           {saving ? "Saving…" : "Save Now"}
         </button>
 
-        {/* Publish Live */}
+        {/* Publish Live / View Live Site */}
         {live ? (
-          <a href={liveUrl} target="_blank" rel="noopener noreferrer"
+          <a href={`${liveUrl}?_t=${Date.now()}`} target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white border border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500/25 transition-all">
             <Eye className="w-4 h-4 text-emerald-400" /> View Live Site
           </a>

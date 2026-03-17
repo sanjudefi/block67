@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth/config";
 import { db as prisma } from "@/lib/db/index";
 
@@ -55,6 +56,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       ...(slug !== undefined ? { slug }             : {}),
     },
   });
+
+  // Purge any cached version of the public site page so the live URL
+  // immediately shows the new data on next request (Vercel CDN + Next cache).
+  revalidatePath(`/site/${updated.slug}`);
 
   return NextResponse.json({ project: updated });
 }

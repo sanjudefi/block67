@@ -38,6 +38,15 @@ export default async function FrontendPage({ params }: { params: { slug: string 
 
   const cfg = (project.paramValues ?? {}) as Record<string, string>;
 
+  // Compute the correct public site URL for this environment.
+  // On block67.app production, we use the pretty subdomain.
+  // On Vercel previews / localhost, we use /site/[slug] on the same host.
+  const host = headers().get("host") ?? "";
+  const isProduction = host === "block67.app" || host === "www.block67.app";
+  const siteUrl = isProduction
+    ? `https://${project.slug}.block67.app`
+    : `https://${host}/site/${project.slug}`;
+
   return (
     <FrontendClient
       projectId={project.id}
@@ -45,7 +54,9 @@ export default async function FrontendPage({ params }: { params: { slug: string 
       projectName={project.name}
       templateKey={cfg._templateKey ?? "erc20-token"}
       config={cfg}
-      isLive={project.status === "ACTIVE" && !!project.deployments[0]?.contractAddress}
+      isLive={project.status === "ACTIVE"}
+      siteUrl={siteUrl}
     />
   );
 }
+
