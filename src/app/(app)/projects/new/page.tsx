@@ -11,6 +11,7 @@ import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
 import type { BuiltinTemplate } from "@/lib/templates/index";
 import { ArrowLeft, ArrowRight, Check, Zap, Send, Sparkles } from "lucide-react";
 import { generateProjectName } from "@/lib/utils/projectNames";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 type Step = "pick" | "name";
 
@@ -38,6 +39,8 @@ function NewProjectForm() {
   const [projectName, setProjectName] = useState("");
   const [creating,    setCreating]    = useState(false);
   const [error,       setError]       = useState("");
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [projectCount, setProjectCount] = useState(0);
 
   useEffect(() => {
     if (selected && !projectName) setProjectName(generateProjectName(selected.id));
@@ -76,7 +79,15 @@ function NewProjectForm() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed");
+      if (!res.ok) {
+        if (data.code === "PROJECT_LIMIT") {
+          setProjectCount(data.count ?? 0);
+          setShowUpgrade(true);
+          setCreating(false);
+          return;
+        }
+        throw new Error(data.error ?? "Failed");
+      }
       // Carry prompt into the builder so the AI chat auto-fires it
       const dest = `/projects/${data.project.slug}${prompt.trim() ? `?prompt=${encodeURIComponent(prompt.trim())}` : ""}`;
       router.push(dest);
@@ -242,6 +253,15 @@ function NewProjectForm() {
           </div>
         )}
       </div>
+
+      {showUpgrade && (
+        <UpgradeModal
+          onClose={() => setShowUpgrade(false)}
+          onUpgraded={() => { setShowUpgrade(false); router.push("/projects/new"); }}
+          projectCount={projectCount}
+          freeLimit={3}
+        />
+      )}
     </PageLayout>
   );
 }

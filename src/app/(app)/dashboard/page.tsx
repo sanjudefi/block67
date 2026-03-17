@@ -9,6 +9,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { PageLayout } from "@/components/PageLayout";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
+import { UpgradeModal } from "@/components/UpgradeModal";
 import {
   Clock, MoreHorizontal, Trash2, Zap, Settings2, ExternalLink,
   Plus, Palette, ArrowRight,
@@ -35,12 +36,19 @@ export default function DashboardPage() {
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [activeTab,       setActiveTab]       = useState<"projects" | "usecases">("projects");
   const [openMenu,        setOpenMenu]        = useState<string | null>(null);
+  const [planLimit,       setPlanLimit]       = useState(3);
+  const [isPro,           setIsPro]           = useState(false);
+  const [showUpgrade,     setShowUpgrade]     = useState(false);
 
   useEffect(() => {
     fetch("/api/projects")
       .then((r) => r.json())
       .then((d) => { setProjects(d.projects ?? []); setLoadingProjects(false); })
       .catch(() => setLoadingProjects(false));
+    fetch("/api/upgrade")
+      .then((r) => r.json())
+      .then((d) => { setPlanLimit(d.limit ?? 3); setIsPro(d.plan === "pro"); })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -56,6 +64,14 @@ export default function DashboardPage() {
 
   const firstName = (session?.user?.name ?? session?.user?.email ?? "Builder").split(/[\s@]/)[0];
 
+  function handleNewProject() {
+    if (!loadingProjects && projects.length >= planLimit) {
+      setShowUpgrade(true);
+    } else {
+      router.push("/projects/new");
+    }
+  }
+
   return (
     <PageLayout user={session?.user ?? {}}>
       <div className="max-w-[800px] mx-auto px-4 pt-10 pb-24">
@@ -66,10 +82,23 @@ export default function DashboardPage() {
             <p className="text-sm text-gray-400 mb-0.5">Welcome back, {firstName} 👋</p>
             <h1 className="text-2xl font-bold text-gray-900">Your Web3 Projects</h1>
           </div>
-          <Link href="/projects/new"
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors shadow-md">
-            <Plus className="w-4 h-4" /> New Project
-          </Link>
+          <div className="flex items-center gap-3">
+            {!loadingProjects && (
+              <div className="flex items-center gap-1.5">
+                <span className={`text-sm font-semibold ${projects.length >= planLimit ? "text-red-500" : "text-gray-500"}`}>
+                  {projects.length}/{planLimit}
+                </span>
+                {isPro
+                  ? <span className="text-[10px] bg-indigo-100 text-indigo-600 font-bold px-1.5 py-0.5 rounded-full">PRO</span>
+                  : <button onClick={() => setShowUpgrade(true)} className="text-[10px] bg-gray-100 hover:bg-indigo-100 text-gray-500 hover:text-indigo-600 font-bold px-1.5 py-0.5 rounded-full transition-colors">FREE</button>
+                }
+              </div>
+            )}
+            <button onClick={handleNewProject}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors shadow-md">
+              <Plus className="w-4 h-4" /> New Project
+            </button>
+          </div>
         </div>
 
         {/* ── Tab bar ── */}
@@ -107,10 +136,10 @@ export default function DashboardPage() {
                 <h2 className="text-xl font-bold text-gray-900 mb-2">No projects yet</h2>
                 <p className="text-gray-500 text-sm mb-6">Start with a use case or create a custom project.</p>
                 <div className="flex items-center justify-center gap-3">
-                  <Link href="/projects/new"
+                  <button onClick={handleNewProject}
                     className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-5 py-3 rounded-xl transition-colors">
                     <Plus className="w-4 h-4" /> New Project
-                  </Link>
+                  </button>
                   <button onClick={() => setActiveTab("usecases")}
                     className="flex items-center gap-2 border border-gray-200 hover:border-indigo-300 text-gray-600 hover:text-indigo-600 font-semibold text-sm px-5 py-3 rounded-xl transition-colors">
                     Browse Use Cases <ArrowRight className="w-4 h-4" />
@@ -202,13 +231,13 @@ export default function DashboardPage() {
                 })}
 
                 {/* Add new card */}
-                <Link href="/projects/new"
-                  className="flex flex-col items-center justify-center gap-3 bg-white border-2 border-dashed border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/30 rounded-2xl p-5 text-gray-400 hover:text-indigo-600 transition-all min-h-[140px]">
+                <button onClick={handleNewProject}
+                  className="flex flex-col items-center justify-center gap-3 bg-white border-2 border-dashed border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/30 rounded-2xl p-5 text-gray-400 hover:text-indigo-600 transition-all min-h-[140px] w-full">
                   <div className="w-12 h-12 rounded-2xl border-2 border-dashed border-current flex items-center justify-center">
                     <Plus className="w-6 h-6" />
                   </div>
                   <span className="text-sm font-semibold">New Project</span>
-                </Link>
+                </button>
               </div>
             )}
           </>
@@ -244,6 +273,15 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {showUpgrade && (
+        <UpgradeModal
+          onClose={() => setShowUpgrade(false)}
+          onUpgraded={() => { setShowUpgrade(false); setPlanLimit(6); setIsPro(true); }}
+          projectCount={projects.length}
+          freeLimit={3}
+        />
+      )}
     </PageLayout>
   );
 }
