@@ -181,7 +181,9 @@ export function FrontendClient({
   const [publishing,  setPublishing]  = useState(false);
   const [live,        setLive]        = useState(isLive);
   const [iframeKey,   setIframeKey]   = useState(0);
-  const [iframeSrc,   setIframeSrc]   = useState(`/site/${projectSlug}?_t=${Date.now()}`);
+  // Preview iframe always loads the DRAFT version (?preview=1)
+  // Live site (/site/slug without preview param) reads the published snapshot only.
+  const [iframeSrc,   setIframeSrc]   = useState(`/site/${projectSlug}?preview=1&_t=${Date.now()}`);
   const [leftTab,     setLeftTab]     = useState<"chat" | "sections">("chat");
   const [viewMode,    setViewMode]    = useState<ViewMode>("desktop");
   const [msgs,        setMsgs]        = useState<ChatMessage[]>([{
@@ -231,8 +233,8 @@ export function FrontendClient({
         setSavedConfig(snapshot);
         setDirty({});
         setSaveStatus("saved");
-        // Reload iframe with fresh timestamp to bust all browser caching
-        const freshSrc = `/site/${projectSlug}?_t=${Date.now()}`;
+        // Reload preview iframe (draft mode) with fresh timestamp
+        const freshSrc = `/site/${projectSlug}?preview=1&_t=${Date.now()}`;
         setIframeSrc(freshSrc);
         setIframeKey(k => k + 1);
         setTimeout(() => setSaveStatus("idle"), 4000);
@@ -301,12 +303,13 @@ export function FrontendClient({
   const publishLive = useCallback(async () => {
     setPublishing(true);
     try {
-      // Always save current state first (ensures DB has latest before going live)
+      // 1. Save any pending draft changes first
       await doSave();
-      const res = await fetch(`/api/projects/${projectId}`, {
-        method:  "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ status: "ACTIVE" }),
+      // 2. Snapshot draft → published (Webflow-style explicit publish)
+      //    POST /api/projects/[id]/publish copies paramValues → _publishedSnapshot
+      //    and sets status = ACTIVE. The live site reads _publishedSnapshot only.
+      const res = await fetch(`/api/projects/${projectId}/publish`, {
+        method: "POST",
       });
       if (res.ok) setLive(true);
     } finally { setPublishing(false); }
@@ -389,7 +392,7 @@ export function FrontendClient({
             )}
           </div>
         ))}
-        <button onClick={() => { const s = `/site/${projectSlug}?_t=${Date.now()}`; setIframeSrc(s); setIframeKey(k=>k+1); }}
+        <button onClick={() => { const s = `/site/${projectSlug}?preview=1&_t=${Date.now()}`; setIframeSrc(s); setIframeKey(k=>k+1); }}
           className="ml-auto shrink-0 flex items-center gap-1.5 text-xs text-white/50 hover:text-white/80 border border-white/15 px-2.5 py-1.5 rounded-lg transition-colors">
           <RefreshCw className="w-3.5 h-3.5" /> Refresh
         </button>
@@ -624,41 +627,46 @@ export function FrontendClient({
       </div>
 
       {/* ══ BOTTOM ACTION BAR ════════════════════════════════════════════════ */}
-      {/* Always visible — this is where Save + Publish live */}
       <div className="shrink-0 border-t border-white/10 px-4 py-3 flex items-center gap-3"
         style={{ background: "rgba(8,8,14,0.98)" }}>
+
         {/* Status indicator */}
         <div className="flex-1 min-w-0">
           {hasDirty ? (
-            <p className="text-xs text-amber-400 font-medium">● Unsaved changes</p>
+            <p className="text-xs text-amber-400 font-medium">● Unsaved draft — click Save, then Publish to go live</p>
+          ) : saveStatus === "saving" ? (
+            <p className="text-xs text-white/40 font-medium">Saving draft…</p>
           ) : saveStatus === "saved" ? (
-            <p className="text-xs text-emerald-400 font-medium">✓ All changes saved</p>
+            <p className="text-xs text-violet-400 font-medium">✓ Draft saved — click <strong>Publish Live</strong> to update the live site</p>
+          ) : live ? (
+            <p className="text-xs text-emerald-400 font-medium">● Site is live — edit and publish to update</p>
           ) : (
-            <p className="text-xs text-white/30">Edit anything above to start customizing</p>
+            <p className="text-xs text-white/30">Edit above, save, then publish to go live</p>
           )}
         </div>
 
-        {/* Save Now */}
+        {/* Save draft */}
         <button onClick={doSave} disabled={saving || !hasDirty}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all disabled:opacity-40"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all disabled:opacity-40"
           style={{ background: hasDirty ? "#8b5cf6" : "rgba(255,255,255,0.08)", color: "#fff" }}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-          {saving ? "Saving…" : "Save Now"}
+          {saving ? "Saving…" : "Save Draft"}
         </button>
 
-        {/* Publish Live / View Live Site */}
-        {live ? (
-          <a href={`${liveUrl}?_t=${Date.now()}`} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white border border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500/25 transition-all">
-            <Eye className="w-4 h-4 text-emerald-400" /> View Live Site
+        {/* Publish Live — always visible; changes label after publish */}
+        <button onClick={publishLive} disabled={publishing}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all disabled:opacity-60"
+          style={{ background: publishing ? "rgba(16,185,129,0.4)" : "linear-gradient(135deg, #10b981, #059669)", boxShadow: publishing ? "none" : "0 0 20px rgba(16,185,129,0.25)" }}>
+          {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+          {publishing ? "Publishing…" : "Publish Live"}
+        </button>
+
+        {/* View Live Site — shown once published */}
+        {live && (
+          <a href={liveUrl} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all shrink-0">
+            <Eye className="w-4 h-4 text-emerald-400" />
           </a>
-        ) : (
-          <button onClick={publishLive} disabled={publishing}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all disabled:opacity-60"
-            style={{ background: "linear-gradient(135deg, #10b981, #059669)", boxShadow: publishing ? "none" : "0 0 20px rgba(16,185,129,0.3)" }}>
-            {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-            {publishing ? "Publishing…" : "Publish Live"}
-          </button>
         )}
       </div>
 

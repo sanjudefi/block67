@@ -62,17 +62,42 @@ async function getProject(slug: string) {
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
-export default async function SitePage({ params }: { params: { slug: string } }) {
+export default async function SitePage({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams: { preview?: string };
+}) {
   // Opt out of ALL caching — every request fetches fresh data from DB.
-  // This is critical: without this, Next.js caches the RSC payload and
-  // the preview iframe shows stale paramValues even after PATCH saves.
   unstable_noStore();
 
   const project = await getProject(params.slug);
 
   if (!project || project.status === "ARCHIVED") notFound();
 
-  const cfg        = (project.paramValues ?? {}) as Record<string, string>;
+  const allValues = (project.paramValues ?? {}) as Record<string, string>;
+
+  // ── Draft vs Published data separation ───────────────────────────────────
+  // paramValues = draft (what the editor writes)
+  // paramValues._publishedSnapshot = live snapshot (set by the Publish action)
+  //
+  // ?preview=1  → show draft data (used by the frontend editor iframe)
+  // (no param)  → show published snapshot, fallback to draft for new/unpublished projects
+  let cfg: Record<string, string>;
+  if (searchParams.preview === "1") {
+    // Editor preview — always show the latest draft
+    cfg = allValues;
+  } else if (allValues._publishedSnapshot) {
+    // Live site — show the published snapshot only
+    try { cfg = JSON.parse(allValues._publishedSnapshot) as Record<string, string>; }
+    catch { cfg = allValues; } // malformed snapshot — fallback gracefully
+  } else {
+    // Project has never been published — show draft as fallback
+    // (maintains backwards compatibility for existing projects)
+    cfg = allValues;
+  }
+
   const lastDeploy = project.deployments[0] ?? null;
 
   const deployment: DeploymentInfo | null = lastDeploy ? {
