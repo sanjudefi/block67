@@ -40,6 +40,7 @@ interface ChatMessage {
 interface Project {
   id: string; name: string; slug: string; status: string;
   paramValues: Record<string, string>;
+  deployedContractAddress?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -296,11 +297,80 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
   const [deploying,      setDeploying]      = useState(false);
   const [deployPhase,    setDeployPhase]    = useState<"idle" | "signing" | "confirming" | "done">("idle");
   const [deployTxHash,      setDeployTxHash]      = useState<string>("");
-  const [deployedAddress,   setDeployedAddress]   = useState<string>("");
+  const [deployedAddress,   setDeployedAddress]   = useState<string>(initialProject.deployedContractAddress ?? "");
   const [constructorArgs,   setConstructorArgs]   = useState<Record<string, string>>({});
+  // Pre-deploy checklist modal
+  const [showDeployChecklist,   setShowDeployChecklist]   = useState(false);
+  const [checkPermanent,        setCheckPermanent]        = useState(false);
+  const [checkNoEdit,           setCheckNoEdit]           = useState(false);
 
-  const isConnected = !!ethAddress;
+  const isConnected  = !!ethAddress;
+  const isDeployed   = !!deployedAddress;  // contract already exists — lock editing
   const SEPOLIA_CHAIN_ID = 11155111;
+
+  // Run the actual deployment — called after checklist is confirmed
+  async function runDeploy() {
+    if (!project || !compileResult) return;
+    setDeploying(true);
+    setDeployError(null);
+    setDeployPhase("signing");
+    try {
+      const { ethers } = await import("ethers");
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer   = await provider.getSigner();
+      const c        = compileResult.contracts[selectedDeployContract];
+      const abi      = c.abi as { type: string; inputs?: { name: string; type: string }[] }[];
+      const ctor     = abi.find((x) => x.type === "constructor");
+      const args     = (ctor?.inputs ?? []).map((inp) => {
+        const val = constructorArgs[inp.name] ?? "";
+        if (inp.type === "address" && !val) return ethAddress;
+        return val;
+      });
+      const factory  = new ethers.ContractFactory(abi, c.bytecode, signer);
+      const contract = await factory.deploy(...args);
+      const txHash   = contract.deploymentTransaction()?.hash ?? "";
+      setDeployTxHash(txHash);
+      setDeployPhase("confirming");
+      await contract.waitForDeployment();
+      const addr = await contract.getAddress();
+      setDeployedAddress(addr);
+      setDeployPhase("done");
+      try {
+        const saveRes = await fetch("/api/deployments", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectId:       project.id,
+            evmChainId:      ethChainId,
+            contractAddress: addr,
+            txHash,
+            deployerAddress: ethAddress,
+            constructorArgs,
+            contractAbi:     abi,
+          }),
+        });
+        if (!saveRes.ok) {
+          const errBody = await saveRes.json().catch(() => ({})) as { error?: string };
+          setDeployDbWarn(
+            `Contract is live on-chain ✓ but dashboard save failed: ${errBody.error ?? saveRes.status}. ` +
+            `Contract address: ${addr}`
+          );
+        }
+      } catch (saveErr: unknown) {
+        setDeployDbWarn(`Contract is live on-chain ✓ but server save failed. Contract: ${addr}`);
+        console.error("[deploy] DB save failed:", saveErr);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setDeployPhase("idle");
+      if (msg.includes("user rejected") || msg.includes("denied"))
+        setDeployError("Transaction rejected in MetaMask.");
+      else
+        setDeployError(msg.slice(0, 200));
+    } finally {
+      setDeploying(false);
+    }
+  }
 
   // Listen for MetaMask account / chain changes
   useEffect(() => {
@@ -1280,6 +1350,23 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
           {tab === "architecture" && architecture && (
             <div className="flex-1 flex flex-col overflow-hidden">
 
+              {/* Deployed lock banner */}
+              {isDeployed && (
+                <div className="shrink-0 mx-5 mt-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                  <span className="text-amber-500 text-lg">🔒</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-amber-800">Contract already deployed — no changes allowed</p>
+                    <p className="text-xs text-amber-600">Smart contract is live on-chain. Architecture is read-only. You can still edit the frontend.</p>
+                  </div>
+                  <button
+                    onClick={() => setDownloadModal(true)}
+                    className="shrink-0 flex items-center gap-1.5 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    <FolderDown className="w-3.5 h-3.5" /> Download
+                  </button>
+                </div>
+              )}
+
               {/* Contract Graph */}
               <div className="bg-white border-b border-gray-100 px-5 py-4 flex-shrink-0">
                 <div className="flex items-center justify-between mb-3">
@@ -1389,6 +1476,22 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
           {/* ── Configure tab ────────────────────────────────────────── */}
           {tab === "configure" && template && (
             <div className="flex-1 overflow-auto p-6 bg-white">
+              {/* Deployed lock banner */}
+              {isDeployed && (
+                <div className="mb-5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                  <span className="text-amber-500 text-lg">🔒</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-amber-800">Contract already deployed — no changes allowed</p>
+                    <p className="text-xs text-amber-600">Configuration is locked after deployment. Download the project to work locally.</p>
+                  </div>
+                  <button
+                    onClick={() => setDownloadModal(true)}
+                    className="shrink-0 flex items-center gap-1.5 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    <FolderDown className="w-3.5 h-3.5" /> Download
+                  </button>
+                </div>
+              )}
               <div className="max-w-lg">
                 <div className={`flex items-center gap-3 bg-gradient-to-r ${template.gradient} rounded-xl p-4 mb-6 text-white`}>
                   <span className="text-2xl">{template.icon}</span>
@@ -1513,6 +1616,22 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
           {/* ── Compile tab ──────────────────────────────────────────── */}
           {tab === "compile" && (
             <div className="flex-1 overflow-auto p-6 bg-white">
+              {/* Deployed lock banner */}
+              {isDeployed && (
+                <div className="mb-5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                  <span className="text-amber-500 text-lg">🔒</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-amber-800">Contract already deployed — no changes allowed</p>
+                    <p className="text-xs text-amber-600">Compilation is locked. The deployed contract cannot be replaced. Download only.</p>
+                  </div>
+                  <button
+                    onClick={() => setDownloadModal(true)}
+                    className="shrink-0 flex items-center gap-1.5 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    <FolderDown className="w-3.5 h-3.5" /> Download
+                  </button>
+                </div>
+              )}
               <div className="max-w-2xl space-y-5">
 
                 {/* Header */}
@@ -1891,75 +2010,16 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                     {/* Deploy button */}
                     <button
                       disabled={deploying || !compileResult.contracts[selectedDeployContract]}
-                      onClick={async () => {
-                        setDeployError(null);
-                        setDeployDbWarn(null);
-                        setDeployTxHash("");
-                        setDeployedAddress("");
-                        setDeploying(true);
-                        setDeployPhase("signing");
-                        try {
-                          const { ethers } = await import("ethers");
-                          const provider = new ethers.BrowserProvider(window.ethereum);
-                          const signer   = await provider.getSigner();
-                          const c        = compileResult.contracts[selectedDeployContract];
-                          const abi      = c.abi as { type: string; inputs?: { name: string; type: string }[] }[];
-                          const ctor     = abi.find((x) => x.type === "constructor");
-                          const args     = (ctor?.inputs ?? []).map((inp) => {
-                            const val = constructorArgs[inp.name] ?? "";
-                            if (inp.type === "address" && !val) return ethAddress; // default to deployer
-                            return val;
-                          });
-                          const factory  = new ethers.ContractFactory(abi, c.bytecode, signer);
-                          const contract = await factory.deploy(...args);
-                          const txHash   = contract.deploymentTransaction()?.hash ?? "";
-                          setDeployTxHash(txHash);
-                          setDeployPhase("confirming"); // tx submitted, waiting for block confirmation
-                          await contract.waitForDeployment();
-                          const addr = await contract.getAddress();
-                          setDeployedAddress(addr);
-                          setDeployPhase("done");
-
-                          // ── Save deployment record to DB ──────────────
-                          // IMPORTANT: surface errors here — previously swallowed silently,
-                          // causing "not deployed" on the public site even after on-chain success.
-                          try {
-                            const saveRes = await fetch("/api/deployments", {
-                              method:  "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                projectId:       project!.id,
-                                evmChainId:      ethChainId,
-                                contractAddress: addr,
-                                txHash,
-                                deployerAddress: ethAddress,
-                                constructorArgs,
-                                contractAbi:     abi,
-                              }),
-                            });
-                            if (!saveRes.ok) {
-                              const errBody = await saveRes.json().catch(() => ({})) as { error?: string };
-                              setDeployDbWarn(
-                                `Contract is live on-chain ✓ but dashboard save failed: ${errBody.error ?? saveRes.status}. ` +
-                                `Your contract address is ${addr} — please note it down and contact support.`
-                              );
-                            }
-                          } catch (saveErr: unknown) {
-                            setDeployDbWarn(
-                              `Contract is live on-chain ✓ but could not reach the server to save the record. ` +
-                              `Contract address: ${addr}`
-                            );
-                            console.error("[deploy] DB save failed:", saveErr);
-                          }
-                        } catch (err: unknown) {
-                          const msg = err instanceof Error ? err.message : String(err);
-                          setDeployPhase("idle");
-                          if (msg.includes("user rejected") || msg.includes("denied"))
-                            setDeployError("Transaction rejected in MetaMask.");
-                          else
-                            setDeployError(msg.slice(0, 200));
-                        } finally {
-                          setDeploying(false);
+                      onClick={() => {
+                        const agreed = typeof localStorage !== "undefined"
+                          ? localStorage.getItem(`deploy_agreed_${project?.id}`)
+                          : null;
+                        if (agreed) {
+                          runDeploy();
+                        } else {
+                          setCheckPermanent(false);
+                          setCheckNoEdit(false);
+                          setShowDeployChecklist(true);
                         }
                       }}
                       className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-bold rounded-xl transition-colors"
@@ -2388,6 +2448,70 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                   <Globe className="w-4 h-4" /> Publish Now
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Pre-deploy checklist modal ─────────────────────────────────── */}
+      {showDeployChecklist && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                <Rocket className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-gray-900">Before you deploy</h2>
+                <p className="text-xs text-gray-400">This action is permanent. Please read carefully.</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-5">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={checkPermanent}
+                  onChange={(e) => setCheckPermanent(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-indigo-600 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700 leading-snug group-hover:text-gray-900 transition-colors">
+                  I understand that deployment to the blockchain is <strong>permanent and irreversible</strong>. The contract cannot be deleted or modified on-chain.
+                </span>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={checkNoEdit}
+                  onChange={(e) => setCheckNoEdit(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-indigo-600 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700 leading-snug group-hover:text-gray-900 transition-colors">
+                  I understand that <strong>Architecture, Configure, and Compile</strong> tabs will be locked after deployment. Only the frontend can be edited.
+                </span>
+              </label>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeployChecklist(false)}
+                className="flex-1 py-2.5 bg-gray-100 text-gray-700 text-sm rounded-xl hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!checkPermanent || !checkNoEdit}
+                onClick={() => {
+                  if (typeof localStorage !== "undefined") {
+                    localStorage.setItem(`deploy_agreed_${project?.id}`, "1");
+                  }
+                  setShowDeployChecklist(false);
+                  runDeploy();
+                }}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                <Rocket className="w-4 h-4" /> Deploy Now
+              </button>
             </div>
           </div>
         </div>

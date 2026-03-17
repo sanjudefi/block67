@@ -28,12 +28,24 @@ export default async function BuilderPage({ params }: { params: { slug: string }
 
   if (!project) notFound();
 
+  // Check if this project already has a successful deployment
+  const latestDeploy = await db.deployment.findFirst({
+    where:   { projectId: project.id },
+    orderBy: { createdAt: "desc" },
+    select:  { contractAddress: true, status: true },
+  });
+  const deployedContractAddress =
+    latestDeploy?.contractAddress && latestDeploy.status !== "FAILED"
+      ? latestDeploy.contractAddress
+      : null;
+
   const initialProject = {
-    id:          project.id,
-    name:        project.name,
-    slug:        project.slug,
-    status:      project.status,
-    paramValues: (project.paramValues ?? {}) as Record<string, string>,
+    id:                      project.id,
+    name:                    project.name,
+    slug:                    project.slug,
+    status:                  project.status,
+    paramValues:             (project.paramValues ?? {}) as Record<string, string>,
+    deployedContractAddress: deployedContractAddress ?? "",
   };
 
   return (
