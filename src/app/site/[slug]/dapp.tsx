@@ -273,7 +273,7 @@ function GlassCard({ children, className = "", accent = "#6366f1" }: { children:
 
 // ── Sections ──────────────────────────────────────────────────────────────────
 
-interface TeamMember { name: string; role: string; bio?: string; avatar?: string; twitter?: string; }
+interface TeamMember { name: string; role: string; bio?: string; avatar?: string; photo?: string; twitter?: string; }
 interface FaqItem    { q: string; a: string; }
 
 function TeamSection({ json, accent }: { json: string; accent: string }) {
@@ -295,7 +295,7 @@ function TeamSection({ json, accent }: { json: string; accent: string }) {
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold shrink-0"
                   style={{ background: `rgba(${rgb},0.2)`, color: accent }}>
-                  {m.avatar ? <img src={m.avatar} className="w-10 h-10 rounded-full object-cover" alt={m.name} /> : m.name[0]}
+                  {(m.photo || m.avatar) ? <img src={m.photo || m.avatar} className="w-10 h-10 rounded-full object-cover" alt={m.name} /> : m.name[0]}
                 </div>
                 <div>
                   <p className="font-semibold text-white text-sm">{m.name}</p>
@@ -348,8 +348,12 @@ function FaqSection({ json, accent }: { json: string; accent: string }) {
   );
 }
 
-function ContactSection({ email, accent }: { email: string; accent: string }) {
-  if (!email) return null;
+function ContactSection({ config, accent }: { config: Record<string,string>; accent: string }) {
+  const email    = config._contact_email || "";
+  const phone    = config._contact_phone || "";
+  const location = config._contact_location || "";
+  const address  = config._contact_address || "";
+  if (!email && !phone && !location && !address) return null;
   const rgb = hexToRgb(accent);
   return (
     <section className="py-16 px-4">
@@ -360,11 +364,12 @@ function ContactSection({ email, accent }: { email: string; accent: string }) {
         </div>
         <h2 className="text-xl font-bold text-white mb-2">Get in Touch</h2>
         <p className="text-white/50 text-sm mb-6">Have questions about the project? We&apos;d love to hear from you.</p>
-        <a href={`mailto:${email}`}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm text-white transition-all hover:opacity-90"
-          style={{ background: accent }}>
-          <Mail className="w-4 h-4" /> {email}
-        </a>
+        <div className="space-y-3">
+          {email    && <a href={`mailto:${email}`}    className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm text-white hover:opacity-90 transition-all" style={{ background: accent }}><Mail className="w-4 h-4" /> {email}</a>}
+          {phone    && <a href={`tel:${phone}`}        className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm text-white/80 border border-white/20 bg-white/5 hover:bg-white/10 transition-all"><span>📞</span> {phone}</a>}
+          {location && <div className="flex items-center justify-center gap-2 text-sm text-white/50"><span>📍</span> {location}</div>}
+          {address  && <div className="flex items-center justify-center gap-2 text-sm text-white/40"><span>🏢</span> {address}</div>}
+        </div>
       </div>
     </section>
   );
@@ -425,7 +430,7 @@ function SiteSections({ config, accent }: { config: Record<string,string>; accen
     <>
       {sections.includes("team")     && config._team_json    && <TeamSection    json={config._team_json}    accent={accent} />}
       {sections.includes("faq")      && config._faq_json     && <FaqSection     json={config._faq_json}     accent={accent} />}
-      {sections.includes("contact")  && config._contact_email && <ContactSection email={config._contact_email} accent={accent} />}
+      {sections.includes("contact")  && <ContactSection config={config} accent={accent} />}
       {sections.includes("social")   && <SocialSection config={config} accent={accent} />}
     </>
   );
