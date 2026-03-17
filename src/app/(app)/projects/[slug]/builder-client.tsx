@@ -2043,6 +2043,17 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                         View on Sepolia Etherscan <ExternalLink className="w-3 h-3" />
                       </a>
                     </div>
+
+                    {/* Next step: customize frontend */}
+                    <div className="border-2 border-dashed border-indigo-200 bg-indigo-50 rounded-2xl p-4">
+                      <p className="text-[11px] text-indigo-500 font-semibold uppercase tracking-wider mb-1">Next Step</p>
+                      <p className="text-sm font-semibold text-gray-800 mb-1">Customize Your Site&apos;s Look &amp; Feel</p>
+                      <p className="text-xs text-gray-500 mb-3">Add your team, FAQ, social links, WhatsApp button and more — all with AI assistance.</p>
+                      <a href={`/projects/${project!.slug}/frontend`}
+                        className="flex items-center justify-center gap-2 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-colors w-full">
+                        <ChevronRight className="w-4 h-4" /> Open Frontend Editor
+                      </a>
+                    </div>
                   </div>
                 )}
 

@@ -1,6 +1,6 @@
 "use client";
 /**
- * Block67 Public dApp Shell
+ * Block67 Public dApp Shell — Beautiful dark-theme edition
  *
  * Renders a fully interactive Web3 dApp for each deployed project.
  * Each template type gets its own UI — real on-chain reads & writes via ethers.js.
@@ -14,6 +14,8 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Wallet, ExternalLink, Copy, CheckCircle2, AlertCircle,
   Loader2, Zap, RefreshCw, Send, Coins, Image, Vote, TrendingUp,
+  MessageCircle, Mail, Twitter, Github, Globe, Users, ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -119,26 +121,36 @@ function parseUnits(val: string, decimals = 18): bigint {
   return BigInt(w || "0") * (10n ** BigInt(decimals)) + BigInt(fracPadded || "0");
 }
 
+// ── Theme ─────────────────────────────────────────────────────────────────────
+
+function hexToRgb(hex: string): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return isNaN(r) ? "99,102,241" : `${r},${g},${b}`;
+}
+
+function getAccent(config: Record<string, string>) {
+  return config.accentColor || config.brandColor || "#6366f1";
+}
+
 // ── Shared UI ─────────────────────────────────────────────────────────────────
 
-function NetBadge({ chainName, color = "indigo" }: { chainName: string; color?: string }) {
-  const classes: Record<string, string> = {
-    indigo: "bg-indigo-100 text-indigo-700 border-indigo-200",
-    emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    amber:   "bg-amber-100  text-amber-700  border-amber-200",
-  };
+function NetBadge({ chainName }: { chainName: string }) {
   return (
-    <span className={`text-[11px] font-semibold border px-2 py-0.5 rounded-full ${classes[color] ?? classes.indigo}`}>
+    <span className="text-[11px] font-semibold border border-white/20 bg-white/10 text-white/70 px-2 py-0.5 rounded-full">
       {chainName}
     </span>
   );
 }
 
-function TxLink({ hash, explorerUrl }: { hash: string; explorerUrl: string }) {
+function TxLink({ hash, explorerUrl, accent }: { hash: string; explorerUrl: string; accent: string }) {
   return (
     <a href={`${explorerUrl}/tx/${hash}`} target="_blank" rel="noopener noreferrer"
-      className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800">
-      View tx <ExternalLink className="w-3 h-3" />
+      className="flex items-center gap-1 text-xs hover:opacity-80 transition-opacity"
+      style={{ color: accent }}>
+      View on explorer <ExternalLink className="w-3 h-3" />
     </a>
   );
 }
@@ -147,8 +159,8 @@ function Toast({ msg, ok }: { msg: string; ok: boolean }) {
   if (!msg) return null;
   return (
     <div className={`flex items-center gap-2 text-sm px-4 py-2.5 rounded-xl border mb-4 ${
-      ok ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-         : "bg-red-50 border-red-200 text-red-700"
+      ok ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+         : "bg-red-500/10 border-red-500/30 text-red-400"
     }`}>
       {ok ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
       {msg}
@@ -160,9 +172,262 @@ function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-      className="text-gray-400 hover:text-indigo-600">
-      {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+      className="text-white/30 hover:text-white/70 transition-colors">
+      {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
+  );
+}
+
+// ── Site Nav ──────────────────────────────────────────────────────────────────
+
+function SiteNav({ name, symbol, chainName, accent, wallet, connect, onWrongChain, switchChain }: {
+  name: string; symbol: string; chainName: string; accent: string;
+  wallet: WalletState; connect: () => void; onWrongChain: boolean; switchChain: () => void;
+}) {
+  const rgb = hexToRgb(accent);
+  return (
+    <nav className="sticky top-0 z-50 border-b border-white/10"
+      style={{ background: `rgba(10,10,15,0.85)`, backdropFilter: "blur(16px)" }}>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: `rgba(${rgb},0.2)`, border: `1px solid rgba(${rgb},0.4)` }}>
+          <span className="text-xs font-bold" style={{ color: accent }}>{symbol.slice(0,2)}</span>
+        </div>
+        <span className="font-bold text-white text-sm truncate flex-1">{name}</span>
+        <NetBadge chainName={chainName} />
+        {onWrongChain
+          ? <button onClick={switchChain} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 transition-colors">Switch Network</button>
+          : wallet.connected
+            ? <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/20 bg-white/5">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="text-xs text-white/70 font-mono">{shortenAddress(wallet.address)}</span>
+              </div>
+            : <button onClick={connect} className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white transition-colors hover:opacity-90"
+                style={{ background: accent }}>
+                Connect Wallet
+              </button>
+        }
+      </div>
+    </nav>
+  );
+}
+
+// ── Hero Section ──────────────────────────────────────────────────────────────
+
+function SiteHero({ name, symbol, description, accent, config, connect, walletConnected }: {
+  name: string; symbol: string; description: string; accent: string; config: Record<string,string>;
+  connect: () => void; walletConnected: boolean;
+}) {
+  const rgb = hexToRgb(accent);
+  const website = config.website || config.projectWebsite || "";
+  return (
+    <section className="relative overflow-hidden pt-20 pb-16 px-4 text-center">
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden>
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full opacity-20 blur-3xl"
+          style={{ background: `radial-gradient(ellipse, rgba(${rgb},0.6) 0%, transparent 70%)` }} />
+      </div>
+      <div className="relative max-w-2xl mx-auto">
+        <div className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full border mb-6"
+          style={{ borderColor: `rgba(${rgb},0.4)`, background: `rgba(${rgb},0.1)`, color: accent }}>
+          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: accent }} />
+          Live on-chain
+        </div>
+        <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight mb-2">
+          <span className="bg-clip-text text-transparent" style={{ backgroundImage: `linear-gradient(135deg, #fff 30%, rgba(${rgb},0.9) 100%)` }}>
+            {name}
+          </span>
+        </h1>
+        <p className="text-2xl font-bold mb-4" style={{ color: accent }}>${symbol}</p>
+        {description && <p className="text-white/60 text-base leading-relaxed mb-8 max-w-lg mx-auto">{description}</p>}
+        <div className="flex items-center justify-center gap-3 flex-wrap">
+          {!walletConnected && (
+            <button onClick={connect} className="px-6 py-3 rounded-xl font-bold text-white text-sm shadow-lg transition-all hover:scale-105 hover:opacity-90"
+              style={{ background: `linear-gradient(135deg, ${accent}, rgba(${rgb},0.7))`, boxShadow: `0 0 20px rgba(${rgb},0.4)` }}>
+              Connect Wallet
+            </button>
+          )}
+          {website && (
+            <a href={website} target="_blank" rel="noopener noreferrer"
+              className="px-6 py-3 rounded-xl font-semibold text-sm border border-white/20 bg-white/5 text-white/70 hover:bg-white/10 transition-colors flex items-center gap-2">
+              <Globe className="w-4 h-4" /> Website
+            </a>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Glass Card ────────────────────────────────────────────────────────────────
+
+function GlassCard({ children, className = "", accent = "#6366f1" }: { children: import("react").ReactNode; className?: string; accent?: string }) {
+  const rgb = hexToRgb(accent);
+  return (
+    <div className={`rounded-2xl border p-5 ${className}`}
+      style={{ background: "rgba(255,255,255,0.04)", borderColor: `rgba(${rgb},0.2)`, backdropFilter: "blur(8px)" }}>
+      {children}
+    </div>
+  );
+}
+
+// ── Sections ──────────────────────────────────────────────────────────────────
+
+interface TeamMember { name: string; role: string; bio?: string; avatar?: string; twitter?: string; }
+interface FaqItem    { q: string; a: string; }
+
+function TeamSection({ json, accent }: { json: string; accent: string }) {
+  let members: TeamMember[] = [];
+  try { members = JSON.parse(json); } catch { return null; }
+  if (!members.length) return null;
+  const rgb = hexToRgb(accent);
+  return (
+    <section className="py-16 px-4">
+      <div className="max-w-4xl mx-auto">
+        <h2 className="text-2xl font-bold text-white text-center mb-10">
+          <span className="bg-clip-text text-transparent" style={{ backgroundImage: `linear-gradient(135deg, #fff 40%, rgba(${rgb},0.9) 100%)` }}>
+            Meet the Team
+          </span>
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {members.map((m, i) => (
+            <GlassCard key={i} accent={accent}>
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold shrink-0"
+                  style={{ background: `rgba(${rgb},0.2)`, color: accent }}>
+                  {m.avatar ? <img src={m.avatar} className="w-10 h-10 rounded-full object-cover" alt={m.name} /> : m.name[0]}
+                </div>
+                <div>
+                  <p className="font-semibold text-white text-sm">{m.name}</p>
+                  <p className="text-xs mt-0.5" style={{ color: accent }}>{m.role}</p>
+                  {m.bio && <p className="text-xs text-white/50 mt-1 leading-relaxed">{m.bio}</p>}
+                  {m.twitter && (
+                    <a href={`https://twitter.com/${m.twitter.replace("@","")}`} target="_blank" rel="noopener noreferrer"
+                      className="mt-1.5 flex items-center gap-1 text-xs text-white/40 hover:text-white/70 transition-colors">
+                      <Twitter className="w-3 h-3" /> @{m.twitter.replace("@","")}
+                    </a>
+                  )}
+                </div>
+              </div>
+            </GlassCard>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FaqSection({ json, accent }: { json: string; accent: string }) {
+  let items: FaqItem[] = [];
+  try { items = JSON.parse(json); } catch { return null; }
+  if (!items.length) return null;
+  const [open, setOpen] = useState<number | null>(null);
+  const rgb = hexToRgb(accent);
+  return (
+    <section className="py-16 px-4">
+      <div className="max-w-2xl mx-auto">
+        <h2 className="text-2xl font-bold text-white text-center mb-10">
+          <span className="bg-clip-text text-transparent" style={{ backgroundImage: `linear-gradient(135deg, #fff 40%, rgba(${rgb},0.9) 100%)` }}>
+            FAQ
+          </span>
+        </h2>
+        <div className="space-y-2">
+          {items.map((item, i) => (
+            <div key={i} className="rounded-xl border border-white/10 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
+              <button onClick={() => setOpen(open === i ? null : i)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left gap-3 hover:bg-white/5 transition-colors">
+                <span className="text-sm font-medium text-white">{item.q}</span>
+                {open === i ? <ChevronUp className="w-4 h-4 text-white/40 shrink-0" /> : <ChevronDown className="w-4 h-4 text-white/40 shrink-0" />}
+              </button>
+              {open === i && <p className="px-5 pb-4 text-sm text-white/60 leading-relaxed">{item.a}</p>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ContactSection({ email, accent }: { email: string; accent: string }) {
+  if (!email) return null;
+  const rgb = hexToRgb(accent);
+  return (
+    <section className="py-16 px-4">
+      <div className="max-w-md mx-auto text-center">
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+          style={{ background: `rgba(${rgb},0.15)`, border: `1px solid rgba(${rgb},0.3)` }}>
+          <Mail className="w-6 h-6" style={{ color: accent }} />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">Get in Touch</h2>
+        <p className="text-white/50 text-sm mb-6">Have questions about the project? We&apos;d love to hear from you.</p>
+        <a href={`mailto:${email}`}
+          className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm text-white transition-all hover:opacity-90"
+          style={{ background: accent }}>
+          <Mail className="w-4 h-4" /> {email}
+        </a>
+      </div>
+    </section>
+  );
+}
+
+function SocialSection({ config, accent }: { config: Record<string,string>; accent: string }) {
+  const links = [
+    { key: "_social_twitter",  label: "Twitter",  Icon: Twitter, url: (v: string) => `https://twitter.com/${v.replace("@","")}` },
+    { key: "_social_telegram", label: "Telegram", Icon: MessageCircle, url: (v: string) => v.startsWith("http") ? v : `https://t.me/${v}` },
+    { key: "_social_discord",  label: "Discord",  Icon: Users, url: (v: string) => v.startsWith("http") ? v : `https://discord.gg/${v}` },
+    { key: "_social_github",   label: "GitHub",   Icon: Github, url: (v: string) => v.startsWith("http") ? v : `https://github.com/${v}` },
+    { key: "website",          label: "Website",  Icon: Globe, url: (v: string) => v },
+  ].filter(l => !!config[l.key]);
+  if (!links.length) return null;
+  const rgb = hexToRgb(accent);
+  return (
+    <section className="py-12 px-4">
+      <div className="max-w-md mx-auto text-center">
+        <h2 className="text-lg font-bold text-white mb-6">Follow Us</h2>
+        <div className="flex items-center justify-center gap-3 flex-wrap">
+          {links.map(({ key, label, Icon, url }) => (
+            <a key={key} href={url(config[key])} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium">
+              <Icon className="w-4 h-4" style={{ color: accent }} /> {label}
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WhatsAppFloat({ number }: { number: string }) {
+  if (!number) return null;
+  const clean = number.replace(/\D/g, "");
+  return (
+    <a href={`https://wa.me/${clean}`} target="_blank" rel="noopener noreferrer"
+      className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-transform hover:scale-110"
+      style={{ background: "#25D366" }}>
+      <MessageCircle className="w-7 h-7 text-white fill-white" />
+    </a>
+  );
+}
+
+function SiteFooter({ name, accent }: { name: string; accent: string }) {
+  return (
+    <footer className="border-t border-white/10 py-8 px-4 text-center">
+      <p className="text-xs text-white/30">
+        {name} · Powered by <a href="https://block67.app" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors" style={{ color: accent }}>Block67</a>
+      </p>
+    </footer>
+  );
+}
+
+function SiteSections({ config, accent }: { config: Record<string,string>; accent: string }) {
+  const sections = (config._sections || "").split(",").map(s => s.trim()).filter(Boolean);
+  return (
+    <>
+      {sections.includes("team")     && config._team_json    && <TeamSection    json={config._team_json}    accent={accent} />}
+      {sections.includes("faq")      && config._faq_json     && <FaqSection     json={config._faq_json}     accent={accent} />}
+      {sections.includes("contact")  && config._contact_email && <ContactSection email={config._contact_email} accent={accent} />}
+      {sections.includes("social")   && <SocialSection config={config} accent={accent} />}
+    </>
   );
 }
 
@@ -330,100 +595,106 @@ function ERC20DApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Reco
   const isOwner = wallet.connected && info.owner && wallet.address.toLowerCase() === info.owner.toLowerCase();
   const isMintable = config.mintable === "true" || isMeme;
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ── Header ── */}
-      <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3 sticky top-0 z-10">
-        <div className="w-9 h-9 rounded-full flex items-center justify-center text-lg shrink-0"
-          style={{ background: config.accentColor || "#6366f1" + "20" }}>
-          <Coins className="w-5 h-5" style={{ color: config.accentColor || "#6366f1" }} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="font-bold text-gray-900 text-sm truncate">{info.name}</h1>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-xs text-gray-400 font-mono">${info.symbol}</span>
-            {isMeme && taxBps !== null && <span className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full font-medium">{taxBps / 100}% tax</span>}
-          </div>
-        </div>
-        <NetBadge chainName={d.chainName} />
-        <WalletConnectBtn wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
-      </div>
+  const accent = getAccent(config);
+  const rgb    = hexToRgb(accent);
+  const desc   = config.description || config.tokenDescription || "";
 
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
-        {loading && <div className="flex items-center gap-2 text-sm text-gray-400"><Loader2 className="w-4 h-4 animate-spin" /> Loading contract data…</div>}
+  return (
+    <div className="min-h-screen" style={{ background: "#0a0a0f", color: "#fff" }}>
+      <SiteNav name={info.name} symbol={info.symbol} chainName={d.chainName} accent={accent}
+        wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
+
+      <SiteHero name={info.name} symbol={info.symbol} description={desc} accent={accent} config={config}
+        connect={connect} walletConnected={wallet.connected} />
+
+      <div className="max-w-2xl mx-auto px-4 pb-6 space-y-4">
+        {loading && <div className="flex items-center gap-2 text-sm text-white/40"><Loader2 className="w-4 h-4 animate-spin" /> Loading contract data…</div>}
         {wErr && <Toast msg={wErr} ok={false} />}
         <Toast msg={toast.msg} ok={toast.ok} />
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-            <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1">Total Supply</p>
-            <p className="font-bold text-gray-900">{info.supply} <span className="text-gray-400 font-normal text-xs">{info.symbol}</span></p>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-            <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1">Contract</p>
+          <GlassCard accent={accent}>
+            <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Total Supply</p>
+            <p className="font-bold text-white">{info.supply} <span className="text-white/40 font-normal text-xs">{info.symbol}</span></p>
+          </GlassCard>
+          <GlassCard accent={accent}>
+            <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Contract</p>
             <div className="flex items-center gap-1">
-              <span className="text-xs font-mono text-gray-600 truncate">{shortenAddress(d.contractAddress)}</span>
+              <span className="text-xs font-mono text-white/60 truncate">{shortenAddress(d.contractAddress)}</span>
               <CopyBtn text={d.contractAddress} />
               <a href={`${d.explorerUrl}/address/${d.contractAddress}`} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="w-3 h-3 text-gray-400 hover:text-indigo-600" />
+                <ExternalLink className="w-3 h-3 text-white/30 hover:text-white/70" />
               </a>
             </div>
-          </div>
+          </GlassCard>
         </div>
 
         {/* Balance */}
         {wallet.connected && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+          <GlassCard accent={accent}>
             <div className="flex items-center justify-between mb-1">
-              <p className="text-[11px] text-gray-400 uppercase tracking-wider">Your Balance</p>
-              <button onClick={loadBalance} className="text-gray-300 hover:text-gray-600"><RefreshCw className="w-3 h-3" /></button>
+              <p className="text-[11px] text-white/40 uppercase tracking-wider">Your Balance</p>
+              <button onClick={loadBalance} className="text-white/30 hover:text-white/70"><RefreshCw className="w-3 h-3" /></button>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{balance || "—"} <span className="text-base font-normal text-gray-400">{info.symbol}</span></p>
-            <p className="text-xs text-gray-400 font-mono mt-1">{shortenAddress(wallet.address)}</p>
-          </div>
+            <p className="text-2xl font-bold text-white">{balance || "—"} <span className="text-base font-normal text-white/40">{info.symbol}</span></p>
+            <p className="text-xs text-white/30 font-mono mt-1">{shortenAddress(wallet.address)}</p>
+          </GlassCard>
         )}
 
         {/* Transfer */}
         {wallet.connected && !onWrongChain && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-3">
-            <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-1.5"><Send className="w-4 h-4 text-indigo-500" /> Transfer</h3>
+          <GlassCard accent={accent} className="space-y-3">
+            <h3 className="font-semibold text-white text-sm flex items-center gap-1.5"><Send className="w-4 h-4" style={{ color: accent }} /> Transfer</h3>
             <input value={toAddr} onChange={(e) => setToAddr(e.target.value)} placeholder="Recipient address (0x…)"
-              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400 font-mono" />
+              className="w-full text-sm rounded-xl px-3 py-2.5 outline-none font-mono bg-white/5 border border-white/15 text-white placeholder-white/30 focus:border-white/30" />
             <div className="flex gap-2">
               <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={`Amount (${info.symbol})`}
-                className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400" />
+                className="flex-1 text-sm rounded-xl px-3 py-2.5 outline-none bg-white/5 border border-white/15 text-white placeholder-white/30 focus:border-white/30" />
               <button onClick={transfer} disabled={busy || !toAddr || !amount}
-                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-1.5">
+                className="px-4 py-2.5 text-white text-sm font-semibold rounded-xl transition-all hover:opacity-90 disabled:opacity-30 flex items-center gap-1.5"
+                style={{ background: accent }}>
                 {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Send
               </button>
             </div>
-          </div>
+          </GlassCard>
         )}
 
         {/* Mint (owner only) */}
         {wallet.connected && !onWrongChain && isOwner && isMintable && (
-          <div className="bg-white rounded-2xl border border-indigo-100 p-5 shadow-sm space-y-3">
-            <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-indigo-500" /> Mint Tokens <span className="text-[11px] text-indigo-500 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-full">Owner only</span>
+          <GlassCard accent={accent} className="space-y-3">
+            <h3 className="font-semibold text-white text-sm flex items-center gap-1.5">
+              <Zap className="w-4 h-4" style={{ color: accent }} /> Mint Tokens
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full border border-white/20 bg-white/10 text-white/60">Owner only</span>
             </h3>
             <input value={mintTo} onChange={(e) => setMintTo(e.target.value)} placeholder="Recipient address"
-              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400 font-mono" />
+              className="w-full text-sm rounded-xl px-3 py-2.5 outline-none font-mono bg-white/5 border border-white/15 text-white placeholder-white/30 focus:border-white/30" />
             <div className="flex gap-2">
               <input value={mintAmt} onChange={(e) => setMintAmt(e.target.value)} placeholder="Amount to mint"
-                className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400" />
+                className="flex-1 text-sm rounded-xl px-3 py-2.5 outline-none bg-white/5 border border-white/15 text-white placeholder-white/30 focus:border-white/30" />
               <button onClick={mintTokens} disabled={busy || !mintTo || !mintAmt}
-                className="px-4 py-2.5 bg-gray-900 hover:bg-indigo-600 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-1.5">
+                className="px-4 py-2.5 text-white text-sm font-semibold rounded-xl transition-all hover:opacity-90 disabled:opacity-30 flex items-center gap-1.5"
+                style={{ background: `rgba(${rgb},0.3)`, border: `1px solid rgba(${rgb},0.5)` }}>
                 {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />} Mint
               </button>
             </div>
-          </div>
+          </GlassCard>
         )}
 
-        {tx && <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /><TxLink hash={tx} explorerUrl={d.explorerUrl} /></div>}
-        {!wallet.connected && <ConnectPrompt connect={connect} />}
-        <ContractInfo d={d} />
+        {tx && (
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <TxLink hash={tx} explorerUrl={d.explorerUrl} accent={accent} />
+          </div>
+        )}
+        {!wallet.connected && <ConnectPrompt connect={connect} accent={accent} />}
+        <ContractInfo d={d} accent={accent} />
       </div>
+
+      <SiteSections config={config} accent={accent} />
+      <SocialSection config={config} accent={accent} />
+      <SiteFooter name={info.name} accent={accent} />
+      <WhatsAppFloat number={config._whatsapp || ""} />
     </div>
   );
 }
@@ -514,110 +785,108 @@ function NFTDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record
   const totalCost = fmtUnits(info.mintPrice * BigInt(qty), 18, 4);
   const isOwner   = wallet.connected && info.owner && wallet.address.toLowerCase() === info.owner.toLowerCase();
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ── Header ── */}
-      <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3 sticky top-0 z-10">
-        <div className="w-9 h-9 rounded-full bg-pink-50 flex items-center justify-center shrink-0">
-          <Image className="w-5 h-5 text-pink-500" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="font-bold text-gray-900 text-sm truncate">{info.name}</h1>
-          <span className="text-xs text-gray-400 font-mono">{info.symbol}</span>
-        </div>
-        <NetBadge chainName={d.chainName} />
-        {info.saleActive
-          ? <span className="text-[11px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold">● Live</span>
-          : <span className="text-[11px] bg-gray-100 text-gray-500 border border-gray-200 px-2 py-0.5 rounded-full">Paused</span>
-        }
-        <WalletConnectBtn wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
-      </div>
+  const accent = getAccent(config);
+  const rgb    = hexToRgb(accent);
+  const desc   = config.description || config.collectionDescription || "";
 
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
-        {loading && <div className="flex items-center gap-2 text-sm text-gray-400"><Loader2 className="w-4 h-4 animate-spin" />Loading collection…</div>}
+  return (
+    <div className="min-h-screen" style={{ background: "#0a0a0f", color: "#fff" }}>
+      <SiteNav name={info.name} symbol={info.symbol} chainName={d.chainName} accent={accent}
+        wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
+
+      <SiteHero name={info.name} symbol={info.symbol} description={desc} accent={accent} config={config}
+        connect={connect} walletConnected={wallet.connected} />
+
+      <div className="max-w-2xl mx-auto px-4 pb-6 space-y-4">
+        {loading && <div className="flex items-center gap-2 text-sm text-white/40"><Loader2 className="w-4 h-4 animate-spin" />Loading collection…</div>}
         {wErr && <Toast msg={wErr} ok={false} />}
         <Toast msg={toast.msg} ok={toast.ok} />
 
         {/* Supply progress */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        <GlassCard accent={accent}>
           <div className="flex items-center justify-between mb-3">
             <div>
-              <p className="font-bold text-gray-900 text-lg">{info.minted.toString()} <span className="text-gray-400 font-normal text-sm">/ {info.maxSupply.toString()} minted</span></p>
-              <p className="text-xs text-gray-400 mt-0.5">{pct}% claimed</p>
+              <p className="font-bold text-white text-lg">{info.minted.toString()} <span className="text-white/40 font-normal text-sm">/ {info.maxSupply.toString()} minted</span></p>
+              <p className="text-xs text-white/40 mt-0.5">{pct}% claimed</p>
             </div>
             <div className="text-right">
-              <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-0.5">Mint Price</p>
-              <p className="font-bold text-gray-900">{ethPrice} {d.nativeCurrency}</p>
+              <p className="text-[11px] text-white/40 uppercase tracking-wider mb-0.5">Mint Price</p>
+              <p className="font-bold text-white">{ethPrice} {d.nativeCurrency}</p>
             </div>
           </div>
-          <div className="w-full bg-gray-100 rounded-full h-2">
-            <div className="bg-gradient-to-r from-pink-500 to-rose-500 h-2 rounded-full transition-all" style={{ width: `${pct}%` }} />
+          <div className="w-full bg-white/10 rounded-full h-2">
+            <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${accent}, rgba(${rgb},0.5))` }} />
           </div>
-        </div>
+          {info.saleActive
+            ? <div className="mt-3 flex items-center gap-1.5 text-xs text-emerald-400"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />Mint is live</div>
+            : <div className="mt-3 text-xs text-white/30">Mint is paused</div>
+          }
+        </GlassCard>
 
         {/* Your NFTs */}
         {wallet.connected && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex items-center justify-between">
+          <GlassCard accent={accent} className="flex items-center justify-between">
             <div>
-              <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1">Your NFTs</p>
-              <p className="text-2xl font-bold text-gray-900">{balance.toString()}</p>
+              <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Your NFTs</p>
+              <p className="text-2xl font-bold text-white">{balance.toString()}</p>
             </div>
-            <button onClick={loadBalance} className="text-gray-300 hover:text-gray-600"><RefreshCw className="w-4 h-4" /></button>
-          </div>
+            <button onClick={loadBalance} className="text-white/30 hover:text-white/70"><RefreshCw className="w-4 h-4" /></button>
+          </GlassCard>
         )}
 
         {/* Mint card */}
         {wallet.connected && !onWrongChain ? (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-4">
-            <h3 className="font-semibold text-gray-900 text-sm">Mint NFT</h3>
-
+          <GlassCard accent={accent} className="space-y-4">
+            <h3 className="font-semibold text-white text-sm">Mint NFT</h3>
             {!info.saleActive && !isOwner && (
-              <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+              <div className="flex items-center gap-2 text-sm text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2.5">
                 <AlertCircle className="w-4 h-4 shrink-0" /> Sale is not active yet
               </div>
             )}
-
-            {/* Qty selector */}
             <div className="flex items-center gap-3">
-              <p className="text-sm text-gray-600 flex-1">Quantity</p>
-              <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-1.5">
-                <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-gray-900 font-bold">−</button>
-                <span className="w-6 text-center text-sm font-bold">{qty}</span>
-                <button onClick={() => setQty(Math.min(10, qty + 1))} className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-gray-900 font-bold">+</button>
+              <p className="text-sm text-white/60 flex-1">Quantity</p>
+              <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-1.5">
+                <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-6 h-6 flex items-center justify-center text-white/60 hover:text-white font-bold">−</button>
+                <span className="w-6 text-center text-sm font-bold text-white">{qty}</span>
+                <button onClick={() => setQty(Math.min(10, qty + 1))} className="w-6 h-6 flex items-center justify-center text-white/60 hover:text-white font-bold">+</button>
               </div>
             </div>
-
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Total cost</span>
-              <span className="font-bold text-gray-900">{totalCost} {d.nativeCurrency}</span>
+              <span className="text-white/50">Total cost</span>
+              <span className="font-bold text-white">{totalCost} {d.nativeCurrency}</span>
             </div>
-
             <button onClick={mintNFT} disabled={busy || !info.saleActive}
-              className="w-full py-3 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2">
+              className="w-full py-3 font-bold rounded-xl transition-all hover:opacity-90 disabled:opacity-30 flex items-center justify-center gap-2 text-white"
+              style={{ background: `linear-gradient(135deg, ${accent}, rgba(${rgb},0.6))`, boxShadow: `0 0 20px rgba(${rgb},0.3)` }}>
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
               {busy ? "Minting…" : `Mint ${qty} NFT${qty > 1 ? "s" : ""}`}
             </button>
-          </div>
+          </GlassCard>
         ) : !wallet.connected ? (
-          <ConnectPrompt connect={connect} />
+          <ConnectPrompt connect={connect} accent={accent} />
         ) : null}
 
         {/* Owner controls */}
         {isOwner && (
-          <div className="bg-white rounded-2xl border border-indigo-100 p-5 shadow-sm space-y-3">
-            <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-indigo-500" /> Owner Controls
+          <GlassCard accent={accent} className="space-y-3">
+            <h3 className="font-semibold text-white text-sm flex items-center gap-1.5">
+              <Zap className="w-4 h-4" style={{ color: accent }} /> Owner Controls
             </h3>
             <button onClick={toggleSale} disabled={busy}
-              className={`w-full py-2.5 text-sm font-semibold rounded-xl border transition-colors ${info.saleActive ? "border-red-200 text-red-600 bg-red-50 hover:bg-red-100" : "border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"}`}>
+              className={`w-full py-2.5 text-sm font-semibold rounded-xl border transition-all ${info.saleActive ? "border-red-500/30 text-red-400 bg-red-500/10 hover:bg-red-500/20" : "border-emerald-500/30 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"}`}>
               {info.saleActive ? "⏸ Pause Sale" : "▶ Activate Sale"}
             </button>
-          </div>
+          </GlassCard>
         )}
 
-        {tx && <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /><TxLink hash={tx} explorerUrl={d.explorerUrl} /></div>}
-        <ContractInfo d={d} />
+        {tx && <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /><TxLink hash={tx} explorerUrl={d.explorerUrl} accent={accent} /></div>}
+        <ContractInfo d={d} accent={accent} />
       </div>
+
+      <SiteSections config={config} accent={accent} />
+      <SocialSection config={config} accent={accent} />
+      <SiteFooter name={info.name} accent={accent} />
+      <WhatsAppFloat number={config._whatsapp || ""} />
     </div>
   );
 }
@@ -690,66 +959,66 @@ function DAODApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record
     finally { setBusy(false); }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3 sticky top-0 z-10">
-        <div className="w-9 h-9 rounded-full bg-violet-50 flex items-center justify-center shrink-0">
-          <Vote className="w-5 h-5 text-violet-500" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="font-bold text-gray-900 text-sm truncate">{info.name}</h1>
-          <span className="text-xs text-gray-400 font-mono">{info.symbol} Governance</span>
-        </div>
-        <NetBadge chainName={d.chainName} color="emerald" />
-        <WalletConnectBtn wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
-      </div>
+  const accent = getAccent(config);
+  const rgb    = hexToRgb(accent);
+  const desc   = config.description || config.daoDescription || "";
 
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
-        {loading && <div className="flex items-center gap-2 text-sm text-gray-400"><Loader2 className="w-4 h-4 animate-spin" />Loading DAO…</div>}
+  return (
+    <div className="min-h-screen" style={{ background: "#0a0a0f", color: "#fff" }}>
+      <SiteNav name={info.name} symbol={info.symbol} chainName={d.chainName} accent={accent}
+        wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
+
+      <SiteHero name={info.name} symbol={`${info.symbol} Governance`} description={desc} accent={accent} config={config}
+        connect={connect} walletConnected={wallet.connected} />
+
+      <div className="max-w-2xl mx-auto px-4 pb-6 space-y-4">
+        {loading && <div className="flex items-center gap-2 text-sm text-white/40"><Loader2 className="w-4 h-4 animate-spin" />Loading DAO…</div>}
         {wErr && <Toast msg={wErr} ok={false} />}
         <Toast msg={toast.msg} ok={toast.ok} />
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-            <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1">Token Supply</p>
-            <p className="font-bold text-gray-900">{info.supply} <span className="text-gray-400 font-normal text-xs">{info.symbol}</span></p>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-            <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1">Quorum</p>
-            <p className="font-bold text-gray-900">{config.quorum || "4"}%</p>
-          </div>
+          <GlassCard accent={accent}>
+            <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Token Supply</p>
+            <p className="font-bold text-white">{info.supply} <span className="text-white/40 font-normal text-xs">{info.symbol}</span></p>
+          </GlassCard>
+          <GlassCard accent={accent}>
+            <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Quorum</p>
+            <p className="font-bold text-white">{config.quorum || "4"}%</p>
+          </GlassCard>
         </div>
 
         {wallet.connected && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1">Your Voting Power</p>
-                <p className="text-2xl font-bold text-gray-900">{balance} <span className="text-base font-normal text-gray-400">{info.symbol}</span></p>
-              </div>
-            </div>
-            {delegate && <p className="text-xs text-gray-400">Delegated to: <span className="font-mono text-gray-600">{shortenAddress(delegate)}</span></p>}
-          </div>
+          <GlassCard accent={accent} className="space-y-2">
+            <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Your Voting Power</p>
+            <p className="text-2xl font-bold text-white">{balance} <span className="text-base font-normal text-white/40">{info.symbol}</span></p>
+            {delegate && <p className="text-xs text-white/30">Delegated to: <span className="font-mono text-white/50">{shortenAddress(delegate)}</span></p>}
+          </GlassCard>
         )}
 
         {wallet.connected && !onWrongChain && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-3">
-            <h3 className="font-semibold text-gray-900 text-sm">Delegate Votes</h3>
-            <p className="text-xs text-gray-500">Delegate your voting power to yourself or another address to participate in governance.</p>
-            <input value={delTo} onChange={(e) => setDelTo(e.target.value)} placeholder={`Leave empty to self-delegate`}
-              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400 font-mono" />
+          <GlassCard accent={accent} className="space-y-3">
+            <h3 className="font-semibold text-white text-sm flex items-center gap-1.5"><Vote className="w-4 h-4" style={{ color: accent }} /> Delegate Votes</h3>
+            <p className="text-xs text-white/40">Delegate your voting power to yourself or another address to participate in governance.</p>
+            <input value={delTo} onChange={(e) => setDelTo(e.target.value)} placeholder="Leave empty to self-delegate"
+              className="w-full text-sm rounded-xl px-3 py-2.5 outline-none font-mono bg-white/5 border border-white/15 text-white placeholder-white/30 focus:border-white/30" />
             <button onClick={doDelegate} disabled={busy}
-              className="w-full py-3 bg-violet-600 hover:bg-violet-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+              className="w-full py-3 font-bold rounded-xl transition-all hover:opacity-90 disabled:opacity-30 flex items-center justify-center gap-2 text-white"
+              style={{ background: accent }}>
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Vote className="w-4 h-4" />}
               {busy ? "Delegating…" : "Delegate Votes"}
             </button>
-          </div>
+          </GlassCard>
         )}
 
-        {!wallet.connected && <ConnectPrompt connect={connect} />}
-        {tx && <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /><TxLink hash={tx} explorerUrl={d.explorerUrl} /></div>}
-        <ContractInfo d={d} />
+        {!wallet.connected && <ConnectPrompt connect={connect} accent={accent} />}
+        {tx && <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /><TxLink hash={tx} explorerUrl={d.explorerUrl} accent={accent} /></div>}
+        <ContractInfo d={d} accent={accent} />
       </div>
+
+      <SiteSections config={config} accent={accent} />
+      <SocialSection config={config} accent={accent} />
+      <SiteFooter name={info.name} accent={accent} />
+      <WhatsAppFloat number={config._whatsapp || ""} />
     </div>
   );
 }
@@ -854,145 +1123,126 @@ function StakingDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Re
     finally { setBusy(false); }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3 sticky top-0 z-10">
-        <div className="w-9 h-9 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
-          <TrendingUp className="w-5 h-5 text-amber-500" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="font-bold text-gray-900 text-sm truncate">{config.tokenName || "Staking"} Pool</h1>
-          <span className="text-xs font-semibold text-emerald-600">{apy}% APY</span>
-        </div>
-        <NetBadge chainName={d.chainName} color="amber" />
-        <WalletConnectBtn wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
-      </div>
+  const accent = getAccent(config);
+  const rgb    = hexToRgb(accent);
+  const desc   = config.description || config.stakingDescription || "";
+  const stakingName = config.tokenName || "Staking";
 
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
-        {loading && <div className="flex items-center gap-2 text-sm text-gray-400"><Loader2 className="w-4 h-4 animate-spin" />Loading pool…</div>}
+  return (
+    <div className="min-h-screen" style={{ background: "#0a0a0f", color: "#fff" }}>
+      <SiteNav name={`${stakingName} Pool`} symbol={`${apy}% APY`} chainName={d.chainName} accent={accent}
+        wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
+
+      <SiteHero name={`${stakingName} Pool`} symbol={`${apy}% APY`} description={desc} accent={accent} config={config}
+        connect={connect} walletConnected={wallet.connected} />
+
+      <div className="max-w-2xl mx-auto px-4 pb-6 space-y-4">
+        {loading && <div className="flex items-center gap-2 text-sm text-white/40"><Loader2 className="w-4 h-4 animate-spin" />Loading pool…</div>}
         {wErr && <Toast msg={wErr} ok={false} />}
         <Toast msg={toast.msg} ok={toast.ok} />
 
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm text-center">
-            <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1">APY</p>
-            <p className="font-bold text-emerald-600 text-lg">{apy}%</p>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm text-center">
-            <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1">Lock</p>
-            <p className="font-bold text-gray-900">{lockDays}d</p>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm text-center">
-            <p className="text-[11px] text-gray-400 uppercase tracking-wider mb-1">TVL</p>
-            <p className="font-bold text-gray-900 text-xs">{info.totalStaked}</p>
-          </div>
+          <GlassCard accent={accent} className="text-center">
+            <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1">APY</p>
+            <p className="font-bold text-lg" style={{ color: accent }}>{apy}%</p>
+          </GlassCard>
+          <GlassCard accent={accent} className="text-center">
+            <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Lock</p>
+            <p className="font-bold text-white">{lockDays}d</p>
+          </GlassCard>
+          <GlassCard accent={accent} className="text-center">
+            <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1">TVL</p>
+            <p className="font-bold text-white text-xs">{info.totalStaked}</p>
+          </GlassCard>
         </div>
 
         {wallet.connected && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-3">
-            <h3 className="font-semibold text-gray-900 text-sm">Your Position</h3>
+          <GlassCard accent={accent} className="space-y-3">
+            <h3 className="font-semibold text-white text-sm">Your Position</h3>
             <div className="grid grid-cols-2 gap-3">
-              <div><p className="text-[11px] text-gray-400 uppercase tracking-wider mb-0.5">Staked</p><p className="font-bold text-gray-900">{position.staked}</p></div>
-              <div><p className="text-[11px] text-gray-400 uppercase tracking-wider mb-0.5">Rewards</p><p className="font-bold text-emerald-600">{position.earned}</p></div>
+              <div><p className="text-[11px] text-white/40 uppercase tracking-wider mb-0.5">Staked</p><p className="font-bold text-white">{position.staked}</p></div>
+              <div><p className="text-[11px] text-white/40 uppercase tracking-wider mb-0.5">Rewards</p><p className="font-bold text-emerald-400">{position.earned}</p></div>
             </div>
-            {unlockDate && <p className="text-xs text-gray-400">Unlocks: {unlockDate.toLocaleDateString()}</p>}
+            {unlockDate && <p className="text-xs text-white/30">Unlocks: {unlockDate.toLocaleDateString()}</p>}
             <div className="flex gap-2 pt-1">
               {parseFloat(position.earned) > 0 && (
                 <button onClick={doClaim} disabled={busy}
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5">
-                  {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TrendingUp className="w-3.5 h-3.5" />} Claim
+                  className="flex-1 py-2.5 bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500/30 text-emerald-400 text-sm font-semibold rounded-xl transition-all disabled:opacity-30 flex items-center justify-center gap-1.5">
+                  {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TrendingUp className="w-3.5 h-3.5" />} Claim Rewards
                 </button>
               )}
               {parseFloat(position.staked) > 0 && isUnlocked && (
                 <button onClick={doUnstake} disabled={busy}
-                  className="flex-1 py-2.5 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-200 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5">
+                  className="flex-1 py-2.5 bg-white/5 border border-white/20 hover:bg-white/10 text-white/70 text-sm font-semibold rounded-xl transition-all disabled:opacity-30 flex items-center justify-center gap-1.5">
                   Unstake
                 </button>
               )}
             </div>
-          </div>
+          </GlassCard>
         )}
 
         {wallet.connected && !onWrongChain && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-3">
-            <h3 className="font-semibold text-gray-900 text-sm">Stake Tokens</h3>
+          <GlassCard accent={accent} className="space-y-3">
+            <h3 className="font-semibold text-white text-sm flex items-center gap-1.5"><TrendingUp className="w-4 h-4" style={{ color: accent }} /> Stake Tokens</h3>
             <div className="flex gap-2">
               <input value={stakeAmt} onChange={(e) => setStakeAmt(e.target.value)} placeholder="Amount to stake"
-                className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-amber-400" />
+                className="flex-1 text-sm rounded-xl px-3 py-2.5 outline-none bg-white/5 border border-white/15 text-white placeholder-white/30 focus:border-white/30" />
               <button onClick={doStake} disabled={busy || !stakeAmt}
-                className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-1.5">
+                className="px-4 py-2.5 text-white text-sm font-semibold rounded-xl transition-all hover:opacity-90 disabled:opacity-30 flex items-center gap-1.5"
+                style={{ background: accent }}>
                 {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TrendingUp className="w-3.5 h-3.5" />} Stake
               </button>
             </div>
-          </div>
+          </GlassCard>
         )}
 
-        {!wallet.connected && <ConnectPrompt connect={connect} />}
-        {tx && <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /><TxLink hash={tx} explorerUrl={d.explorerUrl} /></div>}
-        <ContractInfo d={d} />
+        {!wallet.connected && <ConnectPrompt connect={connect} accent={accent} />}
+        {tx && <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /><TxLink hash={tx} explorerUrl={d.explorerUrl} accent={accent} /></div>}
+        <ContractInfo d={d} accent={accent} />
       </div>
+
+      <SiteSections config={config} accent={accent} />
+      <SocialSection config={config} accent={accent} />
+      <SiteFooter name={stakingName} accent={accent} />
+      <WhatsAppFloat number={config._whatsapp || ""} />
     </div>
   );
 }
 
 // ── Shared sub-components ─────────────────────────────────────────────────────
 
-function WalletConnectBtn({ wallet, connect, onWrongChain, switchChain }: {
-  wallet: WalletState; connect: () => void; onWrongChain: boolean; switchChain: () => void;
-}) {
-  if (!wallet.connected) {
-    return (
-      <button onClick={connect}
-        className="flex items-center gap-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors">
-        <Wallet className="w-3.5 h-3.5" /> Connect
-      </button>
-    );
-  }
-  if (onWrongChain) {
-    return (
-      <button onClick={switchChain}
-        className="flex items-center gap-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg transition-colors">
-        Switch Network
-      </button>
-    );
-  }
+function ConnectPrompt({ connect, accent }: { connect: () => void; accent: string }) {
+  const rgb = hexToRgb(accent);
   return (
-    <div className="flex items-center gap-1.5 text-xs text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg">
-      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-      {shortenAddress(wallet.address)}
-    </div>
-  );
-}
-
-function ConnectPrompt({ connect }: { connect: () => void }) {
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm text-center space-y-3">
-      <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto">
-        <Wallet className="w-6 h-6 text-indigo-500" />
+    <GlassCard accent={accent} className="text-center space-y-3">
+      <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
+        style={{ background: `rgba(${rgb},0.15)`, border: `1px solid rgba(${rgb},0.3)` }}>
+        <Wallet className="w-6 h-6" style={{ color: accent }} />
       </div>
-      <h3 className="font-semibold text-gray-900">Connect your wallet</h3>
-      <p className="text-sm text-gray-500">Connect MetaMask to interact with this contract.</p>
+      <h3 className="font-semibold text-white">Connect your wallet</h3>
+      <p className="text-sm text-white/50">Connect MetaMask to interact with this contract.</p>
       <button onClick={connect}
-        className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+        className="w-full py-3 font-bold rounded-xl transition-all hover:opacity-90 flex items-center justify-center gap-2 text-white"
+        style={{ background: accent }}>
         <Wallet className="w-4 h-4" /> Connect MetaMask
       </button>
-    </div>
+    </GlassCard>
   );
 }
 
-function ContractInfo({ d }: { d: DeploymentInfo }) {
+function ContractInfo({ d, accent }: { d: DeploymentInfo; accent: string }) {
   return (
-    <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4 space-y-2">
-      <p className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Contract</p>
+    <GlassCard accent={accent} className="space-y-2">
+      <p className="text-[11px] text-white/40 uppercase tracking-wider font-semibold">Contract</p>
       <div className="flex items-center gap-2">
-        <code className="text-xs font-mono text-gray-600 flex-1 truncate">{d.contractAddress}</code>
+        <code className="text-xs font-mono text-white/60 flex-1 truncate">{d.contractAddress}</code>
         <CopyBtn text={d.contractAddress} />
         <a href={`${d.explorerUrl}/address/${d.contractAddress}`} target="_blank" rel="noopener noreferrer">
-          <ExternalLink className="w-3.5 h-3.5 text-gray-400 hover:text-indigo-600" />
+          <ExternalLink className="w-3.5 h-3.5 text-white/30 hover:text-white/70" />
         </a>
       </div>
-      <p className="text-[11px] text-gray-400">Network: {d.chainName}</p>
-    </div>
+      <p className="text-[11px] text-white/30">Network: {d.chainName}</p>
+    </GlassCard>
   );
 }
 
@@ -1000,16 +1250,24 @@ function ContractInfo({ d }: { d: DeploymentInfo }) {
 
 export function ProjectDApp({ data }: { data: ProjectData }) {
   const { deployment: d, templateKey, config } = data;
+  const accent = getAccent(config);
+  const rgb    = hexToRgb(accent);
 
   if (!d || !d.contractAddress) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 text-center">
-        <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6">
-          <Zap className="w-8 h-8 text-indigo-400" />
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center"
+        style={{ background: "#0a0a0f" }}>
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[250px] rounded-full opacity-15 blur-3xl"
+            style={{ background: `radial-gradient(ellipse, rgba(${rgb},0.6) 0%, transparent 70%)` }} />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-3">{data.name}</h1>
-        <p className="text-gray-500 mb-2">This project hasn&apos;t been deployed to a blockchain yet.</p>
-        <p className="text-xs text-gray-400">The contract will appear here once the owner deploys it.</p>
+        <div className="relative w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
+          style={{ background: `rgba(${rgb},0.15)`, border: `1px solid rgba(${rgb},0.3)` }}>
+          <Zap className="w-8 h-8" style={{ color: accent }} />
+        </div>
+        <h1 className="text-3xl font-extrabold text-white mb-3">{data.name}</h1>
+        <p className="text-white/50 mb-2">This project hasn&apos;t been deployed to a blockchain yet.</p>
+        <p className="text-xs text-white/30">The contract will appear here once the owner deploys it.</p>
       </div>
     );
   }

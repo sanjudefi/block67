@@ -10,7 +10,7 @@ import Link from "next/link";
 import { PageLayout } from "@/components/PageLayout";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
 import type { TemplateId } from "@/lib/templates/index";
-import { ArrowRight, Clock, MoreHorizontal, Trash2, Zap, Settings2, ExternalLink } from "lucide-react";
+import { ArrowRight, Clock, MoreHorizontal, Trash2, Zap, Settings2, ExternalLink, Plus, Palette } from "lucide-react";
 import { generateProjectName } from "@/lib/utils/projectNames";
 
 // ── Auto-pick best template from prompt keywords ─────────────────────────────
@@ -119,7 +119,7 @@ export default function DashboardPage() {
         <p className="text-gray-500 text-center mb-8 text-[15px]">
           Describe your crypto project — Block67 generates audited smart contracts, compiled and ready to deploy.{" "}
           <Link href="/templates" className="text-indigo-600 hover:underline underline-offset-2">
-            Browse templates →
+            Browse use cases →
           </Link>
         </p>
 
@@ -195,7 +195,7 @@ export default function DashboardPage() {
                   : "border-transparent text-gray-400 hover:text-gray-700"
               }`}
             >
-              {tab === "recent" ? "My launches" : "Templates"}
+              {tab === "recent" ? "My Projects" : "Use Cases"}
             </button>
           ))}
           {activeTab === "recent" && projects.length > 0 && (
@@ -203,6 +203,14 @@ export default function DashboardPage() {
               {projects.length} project{projects.length !== 1 ? "s" : ""}
             </span>
           )}
+          {/* Plus button */}
+          <button
+            onClick={() => { setActiveTab("recent"); setTimeout(() => textareaRef.current?.focus(), 100); }}
+            className="ml-auto w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors flex-shrink-0"
+            title="New project"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
         </div>
 
         {/* ── Recent apps ─────────────────────────────────────────────── */}
@@ -226,16 +234,16 @@ export default function DashboardPage() {
                   return (
                     <div
                       key={project.id}
-                      className="group relative bg-white rounded-xl border border-gray-100 hover:border-indigo-200 hover:shadow-md transition-all p-4"
+                      className="group relative bg-white rounded-2xl border border-gray-100 hover:border-indigo-200 hover:shadow-lg transition-all p-5"
                     >
-                      {/* Top row: icon + name + status + 3-dot */}
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${tmpl?.gradient ?? "from-gray-200 to-gray-300"} flex items-center justify-center text-xl flex-shrink-0`}>
+                      {/* Top row: big icon + name + status + 3-dot */}
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${tmpl?.gradient ?? "from-gray-200 to-gray-300"} flex items-center justify-center text-2xl flex-shrink-0 shadow-sm`}>
                           {tmpl?.icon ?? "🔧"}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
-                            <h3 className="text-gray-900 font-semibold text-sm truncate">{project.name}</h3>
+                            <h3 className="text-gray-900 font-bold text-base truncate">{project.name}</h3>
                             {isLive ? (
                               <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 flex items-center gap-0.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
@@ -244,7 +252,7 @@ export default function DashboardPage() {
                               <span className="text-[10px] bg-gray-50 text-gray-400 border border-gray-200 px-1.5 py-0.5 rounded-full flex-shrink-0">Draft</span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-400 truncate">{tmpl?.name ?? "Custom"}</p>
+                          <p className="text-xs text-gray-500 truncate">{tmpl?.name ?? "Custom"} Use Case</p>
                           <p className="text-xs text-gray-300 mt-0.5 flex items-center gap-1">
                             <Clock className="w-3 h-3" /> {timeAgo(project.updatedAt)}
                           </p>
@@ -291,21 +299,29 @@ export default function DashboardPage() {
                         {/* Builder button — always visible */}
                         <button
                           onClick={() => router.push(`/projects/${project.slug}`)}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold bg-gray-50 hover:bg-indigo-50 hover:text-indigo-700 border border-gray-200 hover:border-indigo-200 text-gray-600 rounded-lg transition-all"
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold bg-gray-50 hover:bg-indigo-50 hover:text-indigo-700 border border-gray-200 hover:border-indigo-200 text-gray-600 rounded-xl transition-all"
                         >
                           <Zap className="w-3.5 h-3.5" /> Builder
                         </button>
 
-                        {/* Admin button — only for live projects */}
+                        {/* Live project actions */}
                         {isLive ? (
-                          <button
-                            onClick={() => router.push(`/projects/${project.slug}/admin`)}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all"
-                          >
-                            <Settings2 className="w-3.5 h-3.5" /> Manage Site
-                          </button>
+                          <>
+                            <button
+                              onClick={() => router.push(`/projects/${project.slug}/frontend`)}
+                              className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 rounded-xl transition-all"
+                            >
+                              <Palette className="w-3.5 h-3.5" /> Frontend
+                            </button>
+                            <button
+                              onClick={() => router.push(`/projects/${project.slug}/admin`)}
+                              className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all"
+                            >
+                              <Settings2 className="w-3.5 h-3.5" /> Admin
+                            </button>
+                          </>
                         ) : (
-                          <div className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs text-gray-300 border border-dashed border-gray-200 rounded-lg">
+                          <div className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs text-gray-300 border border-dashed border-gray-200 rounded-xl">
                             Deploy to unlock
                           </div>
                         )}
@@ -327,23 +343,23 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ── Templates tab ────────────────────────────────────────────── */}
+        {/* ── Use Cases tab ─────────────────────────────────────────────── */}
         {activeTab === "templates" && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {BUILTIN_TEMPLATES.map((t) => (
               <button
                 key={t.id}
                 onClick={() => handleBuild(`Create a ${t.name} for my project`)}
-                className="flex items-start gap-4 bg-white rounded-xl border border-gray-100 hover:border-indigo-200 hover:shadow-sm p-4 transition-all text-left"
+                className="flex items-start gap-4 bg-white rounded-2xl border border-gray-100 hover:border-indigo-200 hover:shadow-md p-5 transition-all text-left group"
               >
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${t.gradient} flex items-center justify-center text-xl flex-shrink-0`}>
+                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${t.gradient} flex items-center justify-center text-2xl flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform`}>
                   {t.icon}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 text-sm mb-0.5">{t.name}</p>
+                  <p className="font-bold text-gray-900 text-sm mb-0.5">{t.name}</p>
                   <p className="text-gray-400 text-xs leading-relaxed">{t.tagline}</p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" />
+                <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5 group-hover:text-indigo-500 transition-colors" />
               </button>
             ))}
           </div>
