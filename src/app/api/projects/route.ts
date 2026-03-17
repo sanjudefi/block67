@@ -29,6 +29,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // ── Project limit check ───────────────────────────────────────────────────
+  const FREE_LIMIT = 3;
+  const PRO_LIMIT  = 6;
+  const projectCount = await prisma.project.count({ where: { ownerId: session.user.id } });
+  // Check upgrade status in AuthNonce table
+  const upgradeRecord = await prisma.authNonce.findUnique({
+    where: { address: `upgrade:${session.user.id}` },
+  });
+  const isPro   = upgradeRecord && new Date(upgradeRecord.expiresAt) > new Date();
+  const limit   = isPro ? PRO_LIMIT : FREE_LIMIT;
+  if (projectCount >= limit) {
+    return NextResponse.json(
+      { error: "Project limit reached", code: "PROJECT_LIMIT", count: projectCount, limit },
+      { status: 402 }
+    );
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   const body = await req.json();
   const { name, templateId, paramValues } = body as {
     name: string;
