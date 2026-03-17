@@ -52,7 +52,13 @@ export async function middleware(req: NextRequest) {
       const url      = req.nextUrl.clone();
       // Preserve sub-paths: daogover.block67.app/something → /site/daogover/something
       url.pathname   = `/site/${slug}${pathname === "/" ? "" : pathname}`;
-      return NextResponse.rewrite(url);
+      const res = NextResponse.rewrite(url);
+      // Prevent Vercel CDN from caching subdomain site pages so every visit
+      // gets fresh paramValues from the DB — reflecting the latest editor saves.
+      res.headers.set("Cache-Control",            "no-store, no-cache, must-revalidate, max-age=0");
+      res.headers.set("Vercel-CDN-Cache-Control", "no-store");
+      res.headers.set("CDN-Cache-Control",        "no-store");
+      return res;
     }
     // Bare *.block67.app with no valid slug — fall through to main logic
   }
@@ -62,7 +68,10 @@ export async function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.pathname = "/site/_domain";
     url.searchParams.set("domain", host.toLowerCase().split(":")[0]);
-    return NextResponse.rewrite(url);
+    const res = NextResponse.rewrite(url);
+    res.headers.set("Cache-Control",            "no-store, no-cache, must-revalidate, max-age=0");
+    res.headers.set("Vercel-CDN-Cache-Control", "no-store");
+    return res;
   }
 
   // ── 3 & 4. Main domain auth guard ─────────────────────────────────────────
