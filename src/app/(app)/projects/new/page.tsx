@@ -1,5 +1,5 @@
 "use client";
-// New project wizard — pick template → name → create
+// New project wizard — prompt field + use case grid → name → create
 // Route: /projects/new
 export const dynamic = "force-dynamic";
 
@@ -9,7 +9,7 @@ import { useSession } from "next-auth/react";
 import { PageLayout } from "@/components/PageLayout";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
 import type { BuiltinTemplate } from "@/lib/templates/index";
-import { ArrowLeft, ArrowRight, Check, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Zap, Send, Sparkles } from "lucide-react";
 import { generateProjectName } from "@/lib/utils/projectNames";
 
 type Step = "pick" | "name";
@@ -23,22 +23,43 @@ export default function NewProjectPage() {
 }
 
 function NewProjectForm() {
-  const router       = useRouter();
-  const params       = useSearchParams();
+  const router  = useRouter();
+  const params  = useSearchParams();
   const { data: session } = useSession();
 
-  const preselect    = params.get("template");
-  const [step, setStep]             = useState<Step>(preselect ? "name" : "pick");
-  const [selected, setSelected]     = useState<BuiltinTemplate | null>(
+  const preselect  = params.get("template");
+  const prePrompt  = params.get("prompt") ?? "";
+
+  const [step,        setStep]        = useState<Step>(preselect ? "name" : "pick");
+  const [selected,    setSelected]    = useState<BuiltinTemplate | null>(
     preselect ? BUILTIN_TEMPLATES.find((t) => t.id === preselect) ?? null : null
   );
+  const [prompt,      setPrompt]      = useState(prePrompt);
   const [projectName, setProjectName] = useState("");
-  const [creating, setCreating]     = useState(false);
-  const [error, setError]           = useState("");
+  const [creating,    setCreating]    = useState(false);
+  const [error,       setError]       = useState("");
 
   useEffect(() => {
     if (selected && !projectName) setProjectName(generateProjectName(selected.id));
   }, [selected]);
+
+  // If user types a prompt and hits enter/submit without selecting a template,
+  // pick the most relevant template based on keywords
+  function inferTemplate(text: string): BuiltinTemplate {
+    const t = text.toLowerCase();
+    if (t.includes("nft") || t.includes("collection") || t.includes("art")) return BUILTIN_TEMPLATES.find(x => x.id === "nft-collection")!;
+    if (t.includes("dao") || t.includes("governance") || t.includes("vote")) return BUILTIN_TEMPLATES.find(x => x.id === "dao-governance")!;
+    if (t.includes("stake") || t.includes("staking") || t.includes("yield") || t.includes("apy")) return BUILTIN_TEMPLATES.find(x => x.id === "staking-dashboard")!;
+    if (t.includes("meme") || t.includes("dog") || t.includes("pepe") || t.includes("fun")) return BUILTIN_TEMPLATES.find(x => x.id === "meme-token")!;
+    return BUILTIN_TEMPLATES.find(x => x.id === "erc20-token")!;
+  }
+
+  function handlePromptSubmit() {
+    if (!prompt.trim()) return;
+    const tmpl = selected ?? inferTemplate(prompt);
+    setSelected(tmpl);
+    setStep("name");
+  }
 
   async function create() {
     if (!selected || !projectName.trim()) return;
@@ -48,11 +69,17 @@ function NewProjectForm() {
       const res  = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: projectName.trim(), templateId: selected.id, paramValues: selected.defaultConfig }),
+        body: JSON.stringify({
+          name:        projectName.trim(),
+          templateId:  selected.id,
+          paramValues: selected.defaultConfig,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      router.push(`/projects/${data.project.slug}`);
+      // Carry prompt into the builder so the AI chat auto-fires it
+      const dest = `/projects/${data.project.slug}${prompt.trim() ? `?prompt=${encodeURIComponent(prompt.trim())}` : ""}`;
+      router.push(dest);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Something went wrong");
       setCreating(false);
@@ -61,7 +88,7 @@ function NewProjectForm() {
 
   return (
     <PageLayout user={session?.user ?? {}}>
-      <div className="max-w-4xl mx-auto px-6 py-10">
+      <div className="max-w-3xl mx-auto px-6 py-10">
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
@@ -73,68 +100,102 @@ function NewProjectForm() {
           </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              {step === "pick" ? "Choose a template" : "Name your project"}
+              {step === "pick" ? "Start building" : "Name your project"}
             </h1>
             <p className="text-gray-500 text-sm mt-0.5">
               {step === "pick"
-                ? "Select the type of blockchain app you want to build"
+                ? "Describe what you want to build, or pick a use case below"
                 : "You can customize everything in the builder after creation"}
             </p>
           </div>
         </div>
 
-        {/* Steps */}
-        <div className="flex items-center gap-2 mb-8">
-          {(["pick", "name"] as Step[]).map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                step === s ? "bg-gray-900 text-white"
-                : step === "name" && s === "pick" ? "bg-emerald-500 text-white"
-                : "bg-gray-100 text-gray-400"
-              }`}>
-                {step === "name" && s === "pick" ? <Check className="w-3 h-3" /> : i + 1}
-              </div>
-              <span className={`text-sm ${step === s ? "text-gray-900 font-medium" : "text-gray-400"}`}>
-                {s === "pick" ? "Template" : "Name"}
-              </span>
-              {i === 0 && <div className="w-6 h-px bg-gray-200" />}
-            </div>
-          ))}
-        </div>
-
-        {/* Step 1: Pick */}
+        {/* ── Step 1: Pick ── */}
         {step === "pick" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {BUILTIN_TEMPLATES.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => { setSelected(t); setStep("name"); }}
-                className="group text-left bg-white border border-gray-100 hover:border-indigo-300 hover:shadow-md rounded-2xl overflow-hidden transition-all"
-              >
-                <div className={`h-24 bg-gradient-to-br ${t.gradient} flex items-center justify-center relative`}>
-                  <span className="text-4xl">{t.icon}</span>
-                  <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors" />
+          <>
+            {/* Prompt input */}
+            <div className="mb-8">
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400">
+                  <Sparkles className="w-5 h-5" />
                 </div>
-                <div className="p-4">
-                  <p className="font-semibold text-gray-900 mb-1">{t.name}</p>
-                  <p className="text-gray-500 text-xs line-clamp-2">{t.tagline}</p>
-                </div>
-              </button>
-            ))}
-          </div>
+                <input
+                  type="text"
+                  value={prompt}
+                  onChange={e => setPrompt(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && prompt.trim()) handlePromptSubmit(); }}
+                  placeholder="e.g. Create a deflationary token with 1B supply for my gaming project…"
+                  className="w-full bg-white border-2 border-gray-200 focus:border-indigo-400 text-gray-900 text-sm rounded-2xl pl-12 pr-14 py-4 outline-none transition-colors placeholder-gray-300 shadow-sm"
+                  autoFocus
+                />
+                <button
+                  onClick={handlePromptSubmit}
+                  disabled={!prompt.trim()}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 text-white transition-colors"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-2 pl-1">
+                Press Enter or click ↑ to continue · Block67 AI will configure the smart contract from your description
+              </p>
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex-1 h-px bg-gray-100" />
+              <span className="text-xs text-gray-400 font-medium">or choose a use case</span>
+              <div className="flex-1 h-px bg-gray-100" />
+            </div>
+
+            {/* Use cases grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {BUILTIN_TEMPLATES.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => { setSelected(t); setStep("name"); }}
+                  className="group text-left bg-white border border-gray-100 hover:border-indigo-300 hover:shadow-md rounded-2xl overflow-hidden transition-all"
+                >
+                  <div className={`h-20 bg-gradient-to-br ${t.gradient} flex items-center justify-center relative`}>
+                    <span className="text-3xl">{t.icon}</span>
+                    <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors" />
+                  </div>
+                  <div className="p-3.5">
+                    <p className="font-semibold text-gray-900 text-sm mb-0.5">{t.name}</p>
+                    <p className="text-gray-400 text-xs line-clamp-2 leading-relaxed">{t.tagline}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
         )}
 
-        {/* Step 2: Name */}
+        {/* ── Step 2: Name ── */}
         {step === "name" && selected && (
           <div className="max-w-md">
-            {/* Template summary */}
+            {/* Selected template summary */}
             <div className={`bg-gradient-to-br ${selected.gradient} rounded-2xl p-5 mb-7 flex items-center gap-4`}>
               <span className="text-4xl">{selected.icon}</span>
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-white font-bold">{selected.name}</p>
                 <p className="text-white/70 text-sm">{selected.tagline}</p>
               </div>
+              <button onClick={() => setStep("pick")}
+                className="text-white/60 hover:text-white text-sm bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors shrink-0">
+                Change
+              </button>
             </div>
+
+            {/* Show prompt if provided */}
+            {prompt.trim() && (
+              <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 mb-5 flex items-start gap-2">
+                <Zap className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-indigo-700 mb-0.5">Starting prompt</p>
+                  <p className="text-xs text-indigo-600 leading-relaxed">{prompt}</p>
+                </div>
+              </div>
+            )}
 
             <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
             <input

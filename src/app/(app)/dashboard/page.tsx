@@ -217,10 +217,10 @@ export default function DashboardPage() {
         {/* ── Use Cases ── */}
         {activeTab === "usecases" && (
           <div>
-            <p className="text-sm text-gray-500 mb-5">Choose a use case to get started — Block67 generates the smart contract and live dApp for you.</p>
+            <p className="text-sm text-gray-500 mb-5">Click any use case to see a live demo and start building — no code required.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {BUILTIN_TEMPLATES.map((t) => (
-                <Link key={t.id} href={`/projects/new?template=${t.id}`}
+                <Link key={t.id} href={`/use-cases/${t.id}`}
                   className="group flex items-start gap-4 bg-white rounded-2xl border border-gray-100 hover:border-indigo-200 hover:shadow-md p-6 transition-all text-left">
                   <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${t.gradient} flex items-center justify-center text-2xl flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform`}>
                     {t.icon}
@@ -228,8 +228,16 @@ export default function DashboardPage() {
                   <div className="flex-1 min-w-0 pt-1">
                     <p className="font-bold text-gray-900 text-base mb-1">{t.name}</p>
                     <p className="text-gray-400 text-sm leading-relaxed">{t.tagline}</p>
+                    <div className="flex gap-1 mt-2 flex-wrap">
+                      {t.features.slice(0, 2).map(f => (
+                        <span key={f} className="text-[10px] bg-gray-50 border border-gray-200 text-gray-500 px-1.5 py-0.5 rounded font-medium">{f}</span>
+                      ))}
+                    </div>
                   </div>
-                  <ArrowRight className="w-5 h-5 text-gray-300 flex-shrink-0 mt-2 group-hover:text-indigo-500 transition-colors" />
+                  <div className="flex flex-col items-center gap-1 shrink-0 mt-1">
+                    <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 transition-colors" />
+                    <span className="text-[10px] text-gray-300 group-hover:text-indigo-400 transition-colors font-medium">Demo</span>
+                  </div>
                 </Link>
               ))}
             </div>

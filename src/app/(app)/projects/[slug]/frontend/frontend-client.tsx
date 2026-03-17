@@ -26,7 +26,7 @@ import {
   Globe, Palette, MessageSquare, Zap, CheckCircle2,
   Monitor, Tablet, Smartphone, Users, MessageCircle,
   HelpCircle, Mail, Share2, Settings, Plus, Trash2,
-  Rocket, Eye,
+  Rocket, Eye, History, RotateCcw, Copy, Check,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -42,6 +42,13 @@ type ViewMode = "desktop" | "tablet" | "mobile";
 
 interface TeamMember { name: string; role: string; bio?: string; twitter?: string; photo?: string; }
 interface FaqItem    { q: string; a: string; }
+
+interface HistoryEntry {
+  id:        string;
+  ts:        Date;
+  label:     string;   // human-readable e.g. "Background: #0a0a0f → #1a1a2e"
+  snapshot:  Record<string, string>;
+}
 
 // ── Section Panel ─────────────────────────────────────────────────────────────
 // Defined BEFORE FrontendClient so React never sees it as "undefined"
@@ -174,16 +181,32 @@ export function FrontendClient({
   siteUrl?: string;
 }) {
   // ── State ──────────────────────────────────────────────────────────────────
-  const [savedConfig, setSavedConfig] = useState<Record<string, string>>(initialConfig);
-  const [dirty,       setDirty]       = useState<Record<string, string>>({});
-  const [saving,      setSaving]      = useState(false);
-  const [saveStatus,  setSaveStatus]  = useState<"idle"|"saving"|"saved"|"error">("idle");
-  const [publishing,  setPublishing]  = useState(false);
-  const [live,        setLive]        = useState(isLive);
-  const [iframeKey,   setIframeKey]   = useState(0);
+  const [savedConfig,    setSavedConfig]    = useState<Record<string, string>>(initialConfig);
+  const [dirty,          setDirty]          = useState<Record<string, string>>({});
+  const [saving,         setSaving]         = useState(false);
+  const [saveStatus,     setSaveStatus]     = useState<"idle"|"saving"|"saved"|"error">("idle");
+  const [publishing,     setPublishing]     = useState(false);
+  const [live,           setLive]           = useState(isLive);
+  // Track whether the current saved draft differs from the last published snapshot.
+  // publishedClean = true means "published and no new draft changes since" → disable Publish.
+  const [publishedClean, setPublishedClean] = useState(() => {
+    // On mount: if already live and _publishedSnapshot matches paramValues, start clean
+    const snap = initialConfig._publishedSnapshot;
+    if (!snap || !isLive) return false;
+    try {
+      const pub = JSON.parse(snap) as Record<string, string>;
+      const { _publishedSnapshot: _x, ...draft } = initialConfig;
+      return JSON.stringify(draft) === JSON.stringify(pub);
+    } catch { return false; }
+  });
+  const [urlCopied,      setUrlCopied]      = useState(false);
+  const [iframeKey,      setIframeKey]      = useState(0);
   // Preview iframe always loads the DRAFT version (?preview=1)
   // Live site (/site/slug without preview param) reads the published snapshot only.
-  const [iframeSrc,   setIframeSrc]   = useState(`/site/${projectSlug}?preview=1&_t=${Date.now()}`);
+  const [iframeSrc,      setIframeSrc]      = useState(`/site/${projectSlug}?preview=1&_t=${Date.now()}`);
+  // Change history — last 15 saved states
+  const [history,        setHistory]        = useState<HistoryEntry[]>([]);
+  const [showHistory,    setShowHistory]    = useState(false);
   const [leftTab,     setLeftTab]     = useState<"chat" | "sections">("chat");
   const [viewMode,    setViewMode]    = useState<ViewMode>("desktop");
   const [msgs,        setMsgs]        = useState<ChatMessage[]>([{
@@ -230,9 +253,38 @@ export function FrontendClient({
         body:    JSON.stringify({ paramValues: snapshot }),
       });
       if (res.ok) {
-        setSavedConfig(snapshot);
+        // Push to change history before overwriting savedConfig
+        setSavedConfig(prev => {
+          const changes: string[] = [];
+          const LABELS: Record<string, string> = {
+            tokenName: "Token Name", collectionName: "Name", daoName: "DAO Name",
+            description: "Description", accentColor: "Accent Color", _bgColor: "Background",
+            website: "Website", _sections: "Sections",
+          };
+          for (const [k, v] of Object.entries(snapshot)) {
+            if (k === "_publishedSnapshot") continue;
+            const old = prev[k];
+            if (old !== undefined && old !== v) {
+              const label = LABELS[k] || k;
+              const oldStr = old.length > 20 ? old.slice(0, 18) + "…" : old;
+              const newStr = v.length > 20 ? v.slice(0, 18) + "…" : v;
+              changes.push(`${label}: ${oldStr || "(empty)"} → ${newStr || "(empty)"}`);
+            }
+          }
+          if (changes.length > 0) {
+            const entry: HistoryEntry = {
+              id:       Date.now().toString(),
+              ts:       new Date(),
+              label:    changes.slice(0, 2).join(" · ") + (changes.length > 2 ? ` +${changes.length - 2} more` : ""),
+              snapshot: { ...snapshot },
+            };
+            setHistory(h => [entry, ...h].slice(0, 15));
+          }
+          return snapshot;
+        });
         setDirty({});
         setSaveStatus("saved");
+        setPublishedClean(false); // draft changed since last publish
         // Reload preview iframe (draft mode) with fresh timestamp
         const freshSrc = `/site/${projectSlug}?preview=1&_t=${Date.now()}`;
         setIframeSrc(freshSrc);
@@ -258,6 +310,7 @@ export function FrontendClient({
   const setField = useCallback((key: string, val: string) => {
     latestRef.current = { ...latestRef.current, [key]: val };
     setDirty(prev => ({ ...prev, [key]: val }));
+    setPublishedClean(false);
     scheduleSave();
   }, [scheduleSave]);
 
@@ -311,7 +364,10 @@ export function FrontendClient({
       const res = await fetch(`/api/projects/${projectId}/publish`, {
         method: "POST",
       });
-      if (res.ok) setLive(true);
+      if (res.ok) {
+        setLive(true);
+        setPublishedClean(true); // mark as clean — no new changes since publish
+      }
     } finally { setPublishing(false); }
   }, [doSave, projectId]);
 
@@ -358,10 +414,26 @@ export function FrontendClient({
           ))}
         </div>
         {live && (
-          <a href={liveUrl} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors shrink-0">
-            <Eye className="w-3 h-3" /> Live <ExternalLink className="w-2.5 h-2.5" />
-          </a>
+          <div className="flex items-center gap-2 shrink-0 ml-2">
+            {/* Big LIVE badge with full URL + copy */}
+            <div className="flex items-center gap-2 border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 rounded-xl">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span className="text-xs font-bold text-emerald-400">LIVE</span>
+              <a href={liveUrl} target="_blank" rel="noopener noreferrer"
+                className="text-xs text-emerald-300/80 hover:text-emerald-300 font-mono truncate max-w-[160px] hidden md:block">
+                {liveUrl.replace("https://", "")}
+              </a>
+              <button
+                onClick={() => { navigator.clipboard.writeText(liveUrl); setUrlCopied(true); setTimeout(() => setUrlCopied(false), 2000); }}
+                title="Copy live URL"
+                className="text-emerald-400 hover:text-emerald-300 shrink-0">
+                {urlCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+              <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 shrink-0">
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
         )}
       </header>
 
@@ -590,16 +662,16 @@ export function FrontendClient({
         </aside>
 
         {/* ── Right panel: Preview ─────────────────────────────────────────── */}
-        <main className="flex-1 overflow-hidden flex flex-col p-3 gap-2" style={{ background: "#0d0d14" }}>
+        <main className="flex-1 overflow-hidden flex flex-col p-3 gap-2 relative" style={{ background: "#0d0d14" }}>
           {/* Status bar */}
           <div className="flex items-center gap-2 shrink-0">
             <div className="flex-1 flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 min-w-0">
               <Globe className="w-3 h-3 text-white/30 shrink-0" />
-              <span className="text-xs text-white/40 font-mono truncate">/site/{projectSlug}</span>
+              <span className="text-xs text-white/40 font-mono truncate">preview — draft mode</span>
             </div>
             {saveStatus === "saved" && (
-              <span className="flex items-center gap-1 text-xs text-emerald-400 font-semibold shrink-0 animate-pulse">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Preview updated!
+              <span className="flex items-center gap-1 text-xs text-emerald-400 font-semibold shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Saved!
               </span>
             )}
             {saveStatus === "saving" && (
@@ -607,20 +679,89 @@ export function FrontendClient({
                 <Loader2 className="w-3 h-3 animate-spin" /> Saving…
               </span>
             )}
+            {/* History toggle */}
+            <button
+              onClick={() => setShowHistory(h => !h)}
+              title="Change history"
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors shrink-0 ${
+                showHistory
+                  ? "bg-violet-500/20 border-violet-500/40 text-violet-300"
+                  : "bg-white/5 border-white/10 text-white/40 hover:text-white/70"
+              }`}>
+              <History className="w-3.5 h-3.5" />
+              {history.length > 0 && <span className="tabular-nums">{history.length}</span>}
+            </button>
           </div>
 
-          {/* iframe */}
-          <div className="flex-1 flex items-start justify-center overflow-hidden">
-            <div className="h-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300"
-              style={{ width: iframeWidth, maxWidth: "100%" }}>
-              <iframe
-                key={iframeKey}
-                src={iframeSrc}
-                className="w-full h-full"
-                style={{ border: "none", display: "block" }}
-                title="Site preview"
-              />
+          {/* iframe + history panel side-by-side */}
+          <div className="flex-1 flex gap-2 overflow-hidden">
+            {/* iframe */}
+            <div className="flex-1 flex items-start justify-center overflow-hidden">
+              <div className="h-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300"
+                style={{ width: iframeWidth, maxWidth: "100%" }}>
+                <iframe
+                  key={iframeKey}
+                  src={iframeSrc}
+                  className="w-full h-full"
+                  style={{ border: "none", display: "block" }}
+                  title="Site preview"
+                />
+              </div>
             </div>
+
+            {/* Change history panel */}
+            {showHistory && (
+              <div className="w-64 shrink-0 rounded-2xl border border-white/10 flex flex-col overflow-hidden"
+                style={{ background: "rgba(15,15,22,0.98)" }}>
+                <div className="px-3 py-2.5 border-b border-white/10 flex items-center justify-between shrink-0">
+                  <span className="text-xs font-bold text-white/70">Change History</span>
+                  <button onClick={() => setShowHistory(false)} className="text-white/30 hover:text-white/70">
+                    ✕
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {history.length === 0 ? (
+                    <p className="text-xs text-white/30 text-center py-6">No changes yet</p>
+                  ) : (
+                    <div className="p-2 space-y-1.5">
+                      {history.map((entry, i) => (
+                        <div key={entry.id}
+                          className="rounded-xl p-2.5 border border-white/8"
+                          style={{ background: "rgba(255,255,255,0.03)" }}>
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <p className="text-[10px] text-white/40">
+                              {entry.ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              {i === 0 && <span className="ml-1 text-violet-400 font-semibold">· latest</span>}
+                            </p>
+                            <button
+                              onClick={() => {
+                                latestRef.current = { ...entry.snapshot };
+                                setSavedConfig(entry.snapshot);
+                                setDirty({});
+                                // force save this reverted state
+                                fetch(`/api/projects/${projectId}`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ paramValues: entry.snapshot }),
+                                }).then(() => {
+                                  setIframeSrc(`/site/${projectSlug}?preview=1&_t=${Date.now()}`);
+                                  setIframeKey(k => k + 1);
+                                  setPublishedClean(false);
+                                });
+                              }}
+                              title="Revert to this version"
+                              className="flex items-center gap-1 text-[10px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 px-1.5 py-0.5 rounded-md transition-colors shrink-0">
+                              <RotateCcw className="w-2.5 h-2.5" /> Revert
+                            </button>
+                          </div>
+                          <p className="text-[11px] text-white/60 leading-snug">{entry.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </main>
 
@@ -653,21 +794,27 @@ export function FrontendClient({
           {saving ? "Saving…" : "Save Draft"}
         </button>
 
-        {/* Publish Live — always visible; changes label after publish */}
-        <button onClick={publishLive} disabled={publishing}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all disabled:opacity-60"
-          style={{ background: publishing ? "rgba(16,185,129,0.4)" : "linear-gradient(135deg, #10b981, #059669)", boxShadow: publishing ? "none" : "0 0 20px rgba(16,185,129,0.25)" }}>
-          {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-          {publishing ? "Publishing…" : "Publish Live"}
+        {/* Publish Live */}
+        <button
+          onClick={publishLive}
+          disabled={publishing || publishedClean}
+          title={publishedClean ? "Already published — make changes to re-enable" : "Publish draft to live site"}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{
+            background: publishedClean
+              ? "rgba(16,185,129,0.15)"
+              : publishing
+                ? "rgba(16,185,129,0.4)"
+                : "linear-gradient(135deg, #10b981, #059669)",
+            boxShadow: publishedClean || publishing ? "none" : "0 0 20px rgba(16,185,129,0.25)",
+          }}>
+          {publishing
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> Publishing…</>
+            : publishedClean
+              ? <><Check className="w-4 h-4" /> Published</>
+              : <><Rocket className="w-4 h-4" /> Publish Live</>
+          }
         </button>
-
-        {/* View Live Site — shown once published */}
-        {live && (
-          <a href={liveUrl} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all shrink-0">
-            <Eye className="w-4 h-4 text-emerald-400" />
-          </a>
-        )}
       </div>
 
     </div>
