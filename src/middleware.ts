@@ -23,6 +23,7 @@ const PUBLIC_PREFIXES = [
   "/site/",           // direct /site/[slug] URLs (e.g. block67.app/site/daogover)
   "/api/auth",        // NextAuth endpoints
   "/api/chains",      // public chain list
+  "/api/plans",       // plan config (used in UpgradeModal before auth)
   "/api/projects/slugs", // slug availability check
 ];
 
@@ -57,11 +58,16 @@ export async function middleware(req: NextRequest) {
     // Bare *.block67.app with no valid slug — fall through to main logic
   }
 
-  // ── 2. Custom domain  (daogover.com → /site/_domain?domain=daogover.com) ──
+  // ── 2. Custom domain  (mytoken.com → /site/_domain?domain=mytoken.com) ────
+  // The _domain page looks up domain→projectSlug in DB and renders the project.
   if (kind === "custom") {
+    const cleanHost = host.toLowerCase().split(":")[0];
     const url = req.nextUrl.clone();
     url.pathname = "/site/_domain";
-    url.searchParams.set("domain", host.toLowerCase().split(":")[0]);
+    url.searchParams.set("domain", cleanHost);
+    // Preserve sub-paths: mytoken.com/about → /site/_domain?domain=mytoken.com&_path=/about
+    if (pathname !== "/") url.searchParams.set("_path", pathname);
+    console.info(`[middleware] custom domain host=${cleanHost} → /site/_domain`);
     return NextResponse.rewrite(url);
   }
 
