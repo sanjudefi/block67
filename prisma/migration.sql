@@ -143,6 +143,25 @@ CREATE UNIQUE INDEX IF NOT EXISTS "block67_dapp_users_projectId_walletAddress_ke
 ALTER TABLE "block67_dapp_users" ADD CONSTRAINT "block67_dapp_users_projectId_fkey"
     FOREIGN KEY ("projectId") REFERENCES "block67_projects"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
+-- ── Seed common EVM chains ────────────────────────────────────────────────────
+-- Run this after creating the block67_chains table. Uses INSERT ... ON CONFLICT
+-- DO NOTHING so re-running the migration is safe.
+-- The API auto-creates chains on first deployment too, but pre-seeding avoids
+-- any race conditions on very first deploy.
+INSERT INTO "block67_chains" ("id","name","slug","chainId","rpcUrl","explorerUrl","nativeCurrency","networkType","isActive","createdAt")
+VALUES
+  (gen_random_uuid()::text, 'Ethereum',        'ethereum',       1,        'https://eth.llamarpc.com',                  'https://etherscan.io',              'ETH',   'MAINNET', true, NOW()),
+  (gen_random_uuid()::text, 'Sepolia',          'sepolia',        11155111, 'https://rpc.sepolia.org',                   'https://sepolia.etherscan.io',      'ETH',   'TESTNET', true, NOW()),
+  (gen_random_uuid()::text, 'Polygon',          'polygon',        137,      'https://polygon-rpc.com',                   'https://polygonscan.com',           'MATIC', 'MAINNET', true, NOW()),
+  (gen_random_uuid()::text, 'Base',             'base',           8453,     'https://mainnet.base.org',                  'https://basescan.org',              'ETH',   'MAINNET', true, NOW()),
+  (gen_random_uuid()::text, 'Base Sepolia',     'base-sepolia',   84532,    'https://sepolia.base.org',                  'https://sepolia.basescan.org',      'ETH',   'TESTNET', true, NOW()),
+  (gen_random_uuid()::text, 'Arbitrum One',     'arbitrum',       42161,    'https://arb1.arbitrum.io/rpc',              'https://arbiscan.io',               'ETH',   'MAINNET', true, NOW()),
+  (gen_random_uuid()::text, 'Optimism',         'optimism',       10,       'https://mainnet.optimism.io',               'https://optimistic.etherscan.io',   'ETH',   'MAINNET', true, NOW()),
+  (gen_random_uuid()::text, 'BNB Smart Chain',  'bsc',            56,       'https://bsc-dataseed.binance.org',          'https://bscscan.com',               'BNB',   'MAINNET', true, NOW()),
+  (gen_random_uuid()::text, 'Avalanche',        'avalanche',      43114,    'https://api.avax.network/ext/bc/C/rpc',     'https://snowtrace.io',              'AVAX',  'MAINNET', true, NOW()),
+  (gen_random_uuid()::text, 'Polygon Mumbai',   'polygon-mumbai', 80001,    'https://rpc-mumbai.maticvigil.com',         'https://mumbai.polygonscan.com',    'MATIC', 'TESTNET', true, NOW())
+ON CONFLICT ("chainId") DO NOTHING;
+
 -- ── Foreign keys ──────────────────────────────────────────────────────────────
 ALTER TABLE "block67_templates"     ADD CONSTRAINT "block67_templates_authorId_fkey"
     FOREIGN KEY ("authorId")    REFERENCES "block67_users"("id")      ON DELETE RESTRICT ON UPDATE CASCADE;

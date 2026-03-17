@@ -291,9 +291,10 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
   // ── ethers.js wallet state (no wagmi on this page) ──────────────────────
   const [ethAddress,  setEthAddress]  = useState<string>("");
   const [ethChainId,  setEthChainId]  = useState<number | null>(null);
-  const [deployError,  setDeployError]  = useState<string | null>(null);
-  const [deploying,    setDeploying]    = useState(false);
-  const [deployPhase,  setDeployPhase]  = useState<"idle" | "signing" | "confirming" | "done">("idle");
+  const [deployError,    setDeployError]    = useState<string | null>(null);
+  const [deployDbWarn,   setDeployDbWarn]   = useState<string | null>(null); // non-fatal: on-chain OK but DB save failed
+  const [deploying,      setDeploying]      = useState(false);
+  const [deployPhase,    setDeployPhase]    = useState<"idle" | "signing" | "confirming" | "done">("idle");
   const [deployTxHash,      setDeployTxHash]      = useState<string>("");
   const [deployedAddress,   setDeployedAddress]   = useState<string>("");
   const [constructorArgs,   setConstructorArgs]   = useState<Record<string, string>>({});
@@ -1892,6 +1893,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                       disabled={deploying || !compileResult.contracts[selectedDeployContract]}
                       onClick={async () => {
                         setDeployError(null);
+                        setDeployDbWarn(null);
                         setDeployTxHash("");
                         setDeployedAddress("");
                         setDeploying(true);
@@ -1919,8 +1921,10 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                           setDeployPhase("done");
 
                           // ── Save deployment record to DB ──────────────
+                          // IMPORTANT: surface errors here — previously swallowed silently,
+                          // causing "not deployed" on the public site even after on-chain success.
                           try {
-                            await fetch("/api/deployments", {
+                            const saveRes = await fetch("/api/deployments", {
                               method:  "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({
@@ -1933,8 +1937,19 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                                 contractAbi:     abi,
                               }),
                             });
-                          } catch {
-                            // Non-fatal — deployment is on-chain either way
+                            if (!saveRes.ok) {
+                              const errBody = await saveRes.json().catch(() => ({})) as { error?: string };
+                              setDeployDbWarn(
+                                `Contract is live on-chain ✓ but dashboard save failed: ${errBody.error ?? saveRes.status}. ` +
+                                `Your contract address is ${addr} — please note it down and contact support.`
+                              );
+                            }
+                          } catch (saveErr: unknown) {
+                            setDeployDbWarn(
+                              `Contract is live on-chain ✓ but could not reach the server to save the record. ` +
+                              `Contract address: ${addr}`
+                            );
+                            console.error("[deploy] DB save failed:", saveErr);
                           }
                         } catch (err: unknown) {
                           const msg = err instanceof Error ? err.message : String(err);
@@ -1969,6 +1984,14 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* ── DB save warning (non-fatal) ── */}
+                {deployDbWarn && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 space-y-1">
+                    <p className="font-semibold">⚠ Dashboard not updated</p>
+                    <p>{deployDbWarn}</p>
                   </div>
                 )}
 
