@@ -10,7 +10,7 @@ import Link from "next/link";
 import { PageLayout } from "@/components/PageLayout";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
 import type { TemplateId } from "@/lib/templates/index";
-import { ArrowRight, Clock, MoreHorizontal, Trash2, Zap } from "lucide-react";
+import { ArrowRight, Clock, MoreHorizontal, Trash2, Zap, Settings2, ExternalLink } from "lucide-react";
 import { generateProjectName } from "@/lib/utils/projectNames";
 
 // ── Auto-pick best template from prompt keywords ─────────────────────────────
@@ -220,31 +220,32 @@ export default function DashboardPage() {
                 </div>
               )
               : projects.map((project) => {
-                  const tKey = project.paramValues?._templateKey;
-                  const tmpl = BUILTIN_TEMPLATES.find((t) => t.id === tKey);
+                  const tKey   = project.paramValues?._templateKey;
+                  const tmpl   = BUILTIN_TEMPLATES.find((t) => t.id === tKey);
+                  const isLive = project.status === "ACTIVE";
                   return (
                     <div
                       key={project.id}
-                      className="group relative bg-white rounded-xl border border-gray-100 hover:border-indigo-200 hover:shadow-md transition-all p-4 cursor-pointer"
-                      onClick={() => router.push(`/projects/${project.slug}`)}
+                      className="group relative bg-white rounded-xl border border-gray-100 hover:border-indigo-200 hover:shadow-md transition-all p-4"
                     >
-                      <div className="flex items-start gap-3">
+                      {/* Top row: icon + name + status + 3-dot */}
+                      <div className="flex items-start gap-3 mb-3">
                         <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${tmpl?.gradient ?? "from-gray-200 to-gray-300"} flex items-center justify-center text-xl flex-shrink-0`}>
                           {tmpl?.icon ?? "🔧"}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
                             <h3 className="text-gray-900 font-semibold text-sm truncate">{project.name}</h3>
-                            {project.status === "ACTIVE" && (
-                              <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">
-                                Live
+                            {isLive ? (
+                              <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 flex items-center gap-0.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
                               </span>
+                            ) : (
+                              <span className="text-[10px] bg-gray-50 text-gray-400 border border-gray-200 px-1.5 py-0.5 rounded-full flex-shrink-0">Draft</span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-400 font-mono truncate">
-                            {tmpl?.name ?? "Custom"} · {project.slug}.block67.app
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                          <p className="text-xs text-gray-400 truncate">{tmpl?.name ?? "Custom"}</p>
+                          <p className="text-xs text-gray-300 mt-0.5 flex items-center gap-1">
                             <Clock className="w-3 h-3" /> {timeAgo(project.updatedAt)}
                           </p>
                         </div>
@@ -257,15 +258,25 @@ export default function DashboardPage() {
                             <MoreHorizontal className="w-4 h-4" />
                           </button>
                           {openMenu === project.id && (
-                            <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-lg z-10 w-40 py-1">
+                            <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-lg z-10 w-44 py-1">
+                              {isLive && (
+                                <a
+                                  href={`https://${project.slug}.block67.app`}
+                                  target="_blank" rel="noopener noreferrer"
+                                  className="flex items-center gap-2 px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 w-full"
+                                  onClick={() => setOpenMenu(null)}
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" /> Visit Live Site
+                                </a>
+                              )}
                               <button
-                                onClick={() => router.push(`/projects/${project.slug}`)}
+                                onClick={() => { setOpenMenu(null); router.push(`/projects/${project.slug}`); }}
                                 className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full"
                               >
                                 <Zap className="w-3.5 h-3.5" /> Open Builder
                               </button>
                               <button
-                                onClick={() => deleteProject(project.id)}
+                                onClick={() => { deleteProject(project.id); }}
                                 className="flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 w-full"
                               >
                                 <Trash2 className="w-3.5 h-3.5" /> Delete
@@ -273,6 +284,31 @@ export default function DashboardPage() {
                             </div>
                           )}
                         </div>
+                      </div>
+
+                      {/* Action buttons row */}
+                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        {/* Builder button — always visible */}
+                        <button
+                          onClick={() => router.push(`/projects/${project.slug}`)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold bg-gray-50 hover:bg-indigo-50 hover:text-indigo-700 border border-gray-200 hover:border-indigo-200 text-gray-600 rounded-lg transition-all"
+                        >
+                          <Zap className="w-3.5 h-3.5" /> Builder
+                        </button>
+
+                        {/* Admin button — only for live projects */}
+                        {isLive ? (
+                          <button
+                            onClick={() => router.push(`/projects/${project.slug}/admin`)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all"
+                          >
+                            <Settings2 className="w-3.5 h-3.5" /> Manage Site
+                          </button>
+                        ) : (
+                          <div className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs text-gray-300 border border-dashed border-gray-200 rounded-lg">
+                            Deploy to unlock
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
