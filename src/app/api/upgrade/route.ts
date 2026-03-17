@@ -12,18 +12,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { db as prisma } from "@/lib/db/index";
+import { PLANS } from "@/lib/upgrade/plans";
+import type { PlanKey } from "@/lib/upgrade/plans";
 
 const FREE_LIMIT = 3;
 const PRO_LIMIT  = 6;
-
-// Pricing in ETH (approximate USD values at time of writing)
-export const PLANS = {
-  monthly: { eth: "0.005", usd: 10,  days: 30,  label: "Monthly" },
-  yearly:  { eth: "0.04",  usd: 100, days: 365, label: "Yearly"  },
-} as const;
-export type PlanKey = keyof typeof PLANS;
-
-export const PAYMENT_ADDRESS = "0xd76DBc2603FF17c3e01751Dbce38a961121229Bc";
 
 export async function GET(_req: NextRequest) {
   const session = await getServerSession(authOptions);

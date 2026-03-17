@@ -4,13 +4,13 @@
 
 import { useState } from "react";
 import { Loader2, Zap, Check, ExternalLink, X } from "lucide-react";
+import { PAYMENT_ADDRESS } from "@/lib/upgrade/plans";
+import type { PlanKey } from "@/lib/upgrade/plans";
 
-export const PAYMENT_ADDRESS = "0xd76DBc2603FF17c3e01751Dbce38a961121229Bc";
 const PLANS = {
   monthly: { eth: "0.005", usd: 10,  days: 30,  label: "Monthly",  badge: "" },
   yearly:  { eth: "0.04",  usd: 100, days: 365, label: "Yearly",   badge: "Save 17%" },
 } as const;
-type PlanKey = keyof typeof PLANS;
 
 interface Props {
   onClose:    () => void;
