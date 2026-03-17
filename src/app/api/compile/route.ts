@@ -43,7 +43,10 @@ export async function POST(req: NextRequest) {
       sources:  { [filename]: { content: source } },
       settings: {
         optimizer:       { enabled: true, runs: 200 },
-        outputSelection: { "*": { "*": ["abi", "evm.bytecode", "evm.deployedBytecode"] } },
+        // Only output contracts defined in the user's main source file.
+        // Using "*" would also output every imported OpenZeppelin contract,
+        // flooding the deploy tab with 9+ irrelevant artifacts.
+        outputSelection: { [filename]: { "*": ["abi", "evm.bytecode", "evm.deployedBytecode"] } },
       },
     };
 
@@ -65,13 +68,17 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Collect all compiled contracts
+    // Collect contracts from the main source file only.
+    // Skip interfaces and abstract contracts (empty bytecode — not deployable).
     const contracts: Record<string, { abi: unknown[]; bytecode: string; deployedBytecode: string }> = {};
     for (const [, fileContracts] of Object.entries(output.contracts ?? {})) {
       for (const [name, contract] of Object.entries(fileContracts)) {
+        const bytecodeObj = contract.evm.bytecode.object;
+        // Skip contracts with no deployable bytecode (interfaces, abstract contracts)
+        if (!bytecodeObj || bytecodeObj.length < 4) continue;
         contracts[name] = {
           abi:              contract.abi,
-          bytecode:         "0x" + contract.evm.bytecode.object,
+          bytecode:         "0x" + bytecodeObj,
           deployedBytecode: "0x" + contract.evm.deployedBytecode.object,
         };
       }

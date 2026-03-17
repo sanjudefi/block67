@@ -291,8 +291,9 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
   // ── ethers.js wallet state (no wagmi on this page) ──────────────────────
   const [ethAddress,  setEthAddress]  = useState<string>("");
   const [ethChainId,  setEthChainId]  = useState<number | null>(null);
-  const [deployError, setDeployError] = useState<string | null>(null);
-  const [deploying,   setDeploying]   = useState(false);
+  const [deployError,  setDeployError]  = useState<string | null>(null);
+  const [deploying,    setDeploying]    = useState(false);
+  const [deployPhase,  setDeployPhase]  = useState<"idle" | "signing" | "confirming" | "done">("idle");
   const [deployTxHash,      setDeployTxHash]      = useState<string>("");
   const [deployedAddress,   setDeployedAddress]   = useState<string>("");
   const [constructorArgs,   setConstructorArgs]   = useState<Record<string, string>>({});
@@ -583,7 +584,14 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
       addLog(`  solc ${result.solcVersion}`);
 
       setCompileResult({ contracts: result.contracts, solcVersion: result.solcVersion ?? "" });
-      setSelectedDeployContract(names[0] ?? "");
+      // Auto-select the main contract: pick the one with the largest ABI (most likely the primary contract)
+      // This avoids selecting a helper/library with empty or tiny ABI
+      const mainContract = names.reduce((best, name) => {
+        const cur  = (result.contracts![name].abi as unknown[]).length;
+        const prev = (result.contracts![best]?.abi as unknown[] | undefined)?.length ?? 0;
+        return cur > prev ? name : best;
+      }, names[0] ?? "");
+      setSelectedDeployContract(mainContract);
       setCompiled(true);
     } catch (err: unknown) {
       addLog(`✗ ${err instanceof Error ? err.message : String(err)}`);
@@ -675,7 +683,12 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
       addLog(`✓ Fixed & compiled · ${names.length} contract(s)`);
 
       setCompileResult({ contracts: result.contracts, solcVersion: result.solcVersion ?? "" });
-      setSelectedDeployContract(names[0] ?? "");
+      const mainContract2 = names.reduce((best, name) => {
+        const cur  = (result.contracts![name].abi as unknown[]).length;
+        const prev = (result.contracts![best]?.abi as unknown[] | undefined)?.length ?? 0;
+        return cur > prev ? name : best;
+      }, names[0] ?? "");
+      setSelectedDeployContract(mainContract2);
       setCompiled(true);
     } catch (err: unknown) {
       addLog(`✗ ${err instanceof Error ? err.message : String(err)}`);
@@ -1882,6 +1895,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                         setDeployTxHash("");
                         setDeployedAddress("");
                         setDeploying(true);
+                        setDeployPhase("signing");
                         try {
                           const { ethers } = await import("ethers");
                           const provider = new ethers.BrowserProvider(window.ethereum);
@@ -1898,9 +1912,11 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                           const contract = await factory.deploy(...args);
                           const txHash   = contract.deploymentTransaction()?.hash ?? "";
                           setDeployTxHash(txHash);
+                          setDeployPhase("confirming"); // tx submitted, waiting for block confirmation
                           await contract.waitForDeployment();
                           const addr = await contract.getAddress();
                           setDeployedAddress(addr);
+                          setDeployPhase("done");
 
                           // ── Save deployment record to DB ──────────────
                           try {
@@ -1922,6 +1938,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                           }
                         } catch (err: unknown) {
                           const msg = err instanceof Error ? err.message : String(err);
+                          setDeployPhase("idle");
                           if (msg.includes("user rejected") || msg.includes("denied"))
                             setDeployError("Transaction rejected in MetaMask.");
                           else
@@ -1933,39 +1950,76 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                       className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-bold rounded-xl transition-colors"
                     >
                       {deploying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-                      {deploying ? "Deploying…" : `Deploy ${selectedDeployContract || "Contract"}`}
+                      {deployPhase === "signing"     ? "Waiting for MetaMask…"      :
+                       deployPhase === "confirming"  ? "Confirming on-chain…"       :
+                       deploying                     ? "Deploying…"                 :
+                       `Deploy ${selectedDeployContract || "Contract"}`}
                     </button>
+
+                    {/* Confirming status banner */}
+                    {deployPhase === "confirming" && deployTxHash && (
+                      <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                        <Loader2 className="w-4 h-4 text-amber-500 animate-spin shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-amber-800">Transaction submitted — waiting for confirmation</p>
+                          <a href={`https://sepolia.etherscan.io/tx/${deployTxHash}`} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 mt-0.5 font-mono truncate">
+                            {deployTxHash.slice(0, 18)}… <ExternalLink className="w-3 h-3 shrink-0" />
+                          </a>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* ── Deployment result ── */}
                 {deployedAddress && (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-2">
-                    <div className="flex items-center gap-2 text-emerald-700 font-bold">
-                      <CheckCircle2 className="w-5 h-5" /> Contract Deployed!
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">Contract Address</p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs font-mono text-gray-900 break-all">{deployedAddress}</p>
-                        <button onClick={() => navigator.clipboard.writeText(deployedAddress)}
-                          className="flex-shrink-0"><Copy className="w-3.5 h-3.5 text-gray-400 hover:text-gray-700" /></button>
+                  <div className="space-y-3">
+                    {/* Live site CTA — most prominent */}
+                    <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl p-5 text-white shadow-lg">
+                      <div className="flex items-center gap-2 font-bold text-base mb-1">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-300" /> Your dApp is Live! 🎉
                       </div>
+                      <p className="text-indigo-200 text-xs mb-4">Contract deployed. Your public dApp is ready for users.</p>
+                      <a
+                        href={`https://${project!.slug}.block67.app`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full flex items-center justify-center gap-2 py-2.5 bg-white text-indigo-700 font-bold text-sm rounded-xl hover:bg-indigo-50 transition-colors"
+                      >
+                        <Globe className="w-4 h-4" />
+                        {project!.slug}.block67.app
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
                     </div>
-                    {deployTxHash && (
+
+                    {/* Contract details */}
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-2">
                       <div>
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">Tx Hash</p>
+                        <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">Contract Address</p>
                         <div className="flex items-center gap-2">
-                          <p className="text-xs font-mono text-gray-500 truncate">{deployTxHash}</p>
-                          <a href={`https://sepolia.etherscan.io/tx/${deployTxHash}`} target="_blank" rel="noopener noreferrer"
-                            className="flex-shrink-0"><ExternalLink className="w-3.5 h-3.5 text-indigo-500 hover:text-indigo-700" /></a>
+                          <p className="text-xs font-mono text-gray-900 break-all">{deployedAddress}</p>
+                          <button onClick={() => navigator.clipboard.writeText(deployedAddress)} className="flex-shrink-0">
+                            <Copy className="w-3.5 h-3.5 text-gray-400 hover:text-gray-700" />
+                          </button>
                         </div>
                       </div>
-                    )}
-                    <a href={`https://sepolia.etherscan.io/address/${deployedAddress}`} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-semibold">
-                      View on Sepolia Etherscan <ExternalLink className="w-3 h-3" />
-                    </a>
+                      {deployTxHash && (
+                        <div>
+                          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">Tx Hash</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-mono text-gray-500 truncate">{deployTxHash}</p>
+                            <a href={`https://sepolia.etherscan.io/tx/${deployTxHash}`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                              <ExternalLink className="w-3.5 h-3.5 text-indigo-500 hover:text-indigo-700" />
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                      <a href={`https://sepolia.etherscan.io/address/${deployedAddress}`} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-semibold">
+                        View on Sepolia Etherscan <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
                   </div>
                 )}
 
