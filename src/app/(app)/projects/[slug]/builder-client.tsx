@@ -11,6 +11,7 @@ import {
   Send, Mic, RefreshCw, Eye, Sliders, CircuitBoard,
   CheckCircle2, Loader2, Layers, Terminal,
   ChevronRight, MessageSquare, Copy, ExternalLink, FolderDown,
+  Lock, GitFork,
 } from "lucide-react";
 import { TemplatePreview } from "@/lib/templates/previews";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
@@ -307,6 +308,45 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
   const isConnected  = !!ethAddress;
   const isDeployed   = !!deployedAddress;  // contract already exists — lock editing
   const SEPOLIA_CHAIN_ID = 11155111;
+
+  // ── Duplicate state ────────────────────────────────────────────────────────
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateName,      setDuplicateName]      = useState("");
+  const [duplicating,        setDuplicating]        = useState(false);
+  const [duplicateError,     setDuplicateError]     = useState("");
+
+  async function duplicateProject() {
+    if (!project || !duplicateName.trim()) return;
+    setDuplicateError(""); setDuplicating(true);
+    const res  = await fetch("/api/projects", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        name:        duplicateName.trim(),
+        templateId:  templateId,
+        paramValues: config,
+      }),
+    });
+    const data = await res.json() as { project?: { slug: string }; error?: string; code?: string };
+    setDuplicating(false);
+    if (!res.ok) {
+      setDuplicateError(data.code === "PROJECT_LIMIT"
+        ? "Project limit reached — upgrade to Premium to create more projects."
+        : (data.error ?? "Failed to duplicate."));
+      return;
+    }
+    router.push(`/projects/${data.project!.slug}`);
+  }
+
+  // ── Tab navigation — Frontend redirects to editor when deployed ────────────
+  function handleTabClick(id: BuilderTab) {
+    if (isDeployed && id === "frontend") {
+      router.push(`/projects/${project!.slug}/frontend`);
+      return;
+    }
+    setTab(id);
+    setMobileChatOpen(false);
+  }
 
   // Run the actual deployment — called after checklist is confirmed
   async function runDeploy() {
@@ -1011,28 +1051,38 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
       {/* ── Tab strip ────────────────────────────────────────────────────── */}
       <div className="border-b border-gray-100 bg-white flex-shrink-0 px-2 z-20 overflow-x-auto">
         <div className="flex gap-0.5 min-w-max">
-          {TABS.map(({ id, icon: Icon, label, sub }) => (
-            <button
-              key={id}
-              onClick={() => { setTab(id); setMobileChatOpen(false); }}
-              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all group flex-shrink-0 ${
-                tab === id
-                  ? "border-indigo-600 text-indigo-600"
-                  : "border-transparent text-gray-400 hover:text-gray-700 hover:border-gray-200"
-              }`}
-            >
-              <Icon className={`w-4 h-4 ${tab === id ? "text-indigo-600" : "text-gray-400 group-hover:text-gray-600"}`} />
-              <div className="text-left hidden sm:block">
-                <div className={`text-sm font-semibold leading-tight ${tab === id ? "text-indigo-700" : "text-gray-700"}`}>{label}</div>
-                <div className="text-[10px] text-gray-400 leading-tight">{sub}</div>
-              </div>
-              <span className="sm:hidden text-xs font-semibold">{label}</span>
-              {/* Compiled badge on compile tab */}
-              {id === "compile" && compiled && (
-                <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
-              )}
-            </button>
-          ))}
+          {TABS.map(({ id, icon: Icon, label, sub }) => {
+            const isLockedTab    = isDeployed && id !== "frontend";
+            const isFrontendLink = isDeployed && id === "frontend";
+            return (
+              <button
+                key={id}
+                onClick={() => handleTabClick(id)}
+                className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all group flex-shrink-0 ${
+                  isLockedTab
+                    ? "border-transparent text-gray-300 cursor-default"
+                    : tab === id
+                    ? "border-indigo-600 text-indigo-600"
+                    : "border-transparent text-gray-400 hover:text-gray-700 hover:border-gray-200"
+                }`}
+              >
+                {isLockedTab
+                  ? <Lock className="w-4 h-4 text-gray-300" />
+                  : <Icon className={`w-4 h-4 ${tab === id ? "text-indigo-600" : "text-gray-400 group-hover:text-gray-600"}`} />
+                }
+                <div className="text-left hidden sm:block">
+                  <div className={`text-sm font-semibold leading-tight ${isLockedTab ? "text-gray-300" : tab === id ? "text-indigo-700" : "text-gray-700"}`}>{label}</div>
+                  <div className={`text-[10px] leading-tight ${isLockedTab ? "text-gray-300" : "text-gray-400"}`}>
+                    {isFrontendLink ? "Open editor →" : isLockedTab ? "Locked" : sub}
+                  </div>
+                </div>
+                <span className="sm:hidden text-xs font-semibold">{label}</span>
+                {id === "compile" && compiled && !isDeployed && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                )}
+              </button>
+            );
+          })}
 
           {/* View controls — frontend tab only */}
           {tab === "frontend" && (
@@ -1298,40 +1348,52 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
 
           {/* Input box */}
           <div className="border-t border-gray-100 p-3">
-            <div className="flex items-end gap-2 bg-gray-50 rounded-2xl border border-gray-200 focus-within:border-gray-400 focus-within:bg-white transition-colors px-3 py-2.5">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                rows={1}
-                placeholder="Describe what to change…"
-                disabled={generating}
-                className="flex-1 bg-transparent text-[13px] text-gray-800 outline-none resize-none placeholder-gray-400 disabled:opacity-40 max-h-20"
-                style={{ lineHeight: "1.5" }}
-              />
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-                  <Mic className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => sendMessage()}
-                  disabled={!input.trim() || generating}
-                  className="w-7 h-7 flex items-center justify-center bg-gray-900 hover:bg-indigo-600 disabled:bg-gray-200 text-white rounded-lg transition-colors"
-                >
-                  {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                </button>
+            {isDeployed ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 flex items-center gap-2.5">
+                <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-gray-500">Builder locked after deployment</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Duplicate this project to make changes.</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center justify-between mt-1.5 px-1">
-              <button
-                onClick={() => { setConfig(template?.defaultConfig ?? {}); flashPreview("Reset to defaults"); }}
-                className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <RefreshCw className="w-2.5 h-2.5" /> Reset
-              </button>
-              <span className="text-[10px] text-gray-300">↵ Enter to send</span>
-            </div>
+            ) : (
+              <>
+                <div className="flex items-end gap-2 bg-gray-50 rounded-2xl border border-gray-200 focus-within:border-gray-400 focus-within:bg-white transition-colors px-3 py-2.5">
+                  <textarea
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                    rows={1}
+                    placeholder="Describe what to change…"
+                    disabled={generating}
+                    className="flex-1 bg-transparent text-[13px] text-gray-800 outline-none resize-none placeholder-gray-400 disabled:opacity-40 max-h-20"
+                    style={{ lineHeight: "1.5" }}
+                  />
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                      <Mic className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => sendMessage()}
+                      disabled={!input.trim() || generating}
+                      className="w-7 h-7 flex items-center justify-center bg-gray-900 hover:bg-indigo-600 disabled:bg-gray-200 text-white rounded-lg transition-colors"
+                    >
+                      {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-1.5 px-1">
+                  <button
+                    onClick={() => { setConfig(template?.defaultConfig ?? {}); flashPreview("Reset to defaults"); }}
+                    className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <RefreshCw className="w-2.5 h-2.5" /> Reset
+                  </button>
+                  <span className="text-[10px] text-gray-300">↵ Enter to send</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -1346,8 +1408,92 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
             </div>
           )}
 
+          {/* ── DEPLOYED: full locked screen (replaces all tabs) ─────────── */}
+          {isDeployed && (
+            <div className="flex-1 overflow-auto bg-white">
+              <div className="max-w-xl mx-auto px-6 py-8">
+
+                {/* Success header */}
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-6 mb-6 text-center">
+                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900 mb-1">Contract Deployed Successfully</h2>
+                  <p className="text-sm text-gray-500 leading-relaxed">
+                    This contract is live on-chain. The builder is permanently locked —
+                    no edits, compiling, or re-deployment allowed.
+                  </p>
+                </div>
+
+                {/* Deployment info */}
+                <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4 space-y-3">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Deployment Info</p>
+                  {deployedAddress && (
+                    <div>
+                      <p className="text-[10px] text-gray-400 mb-0.5">Contract Address</p>
+                      <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
+                        <code className="text-xs font-mono text-gray-900 break-all flex-1">{deployedAddress}</code>
+                        <button onClick={() => navigator.clipboard.writeText(deployedAddress)} title="Copy">
+                          <Copy className="w-3.5 h-3.5 text-gray-400 hover:text-gray-700 flex-shrink-0" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {deployTxHash && (
+                    <div>
+                      <p className="text-[10px] text-gray-400 mb-0.5">Transaction Hash</p>
+                      <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
+                        <code className="text-xs font-mono text-gray-500 truncate flex-1">{deployTxHash}</code>
+                        <a href={`https://sepolia.etherscan.io/tx/${deployTxHash}`} target="_blank" rel="noopener noreferrer" title="View on Etherscan">
+                          <ExternalLink className="w-3.5 h-3.5 text-indigo-500 hover:text-indigo-700 flex-shrink-0" />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  {deployedAddress && (
+                    <a href={`https://sepolia.etherscan.io/address/${deployedAddress}`} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                      View on Sepolia Etherscan <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+
+                {/* What you CAN do */}
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 mb-6 text-xs text-indigo-700 space-y-1">
+                  <p className="font-semibold mb-1.5">What you can still do:</p>
+                  <p>✓ Customize your frontend UI and publish your site</p>
+                  <p>✓ Connect a custom domain (Premium)</p>
+                  <p>✓ Download the full source code</p>
+                  <p>✓ Save as a new project to create an edited copy</p>
+                </div>
+
+                {/* Actions */}
+                <div className="space-y-3">
+                  <button
+                    onClick={() => router.push(`/projects/${project!.slug}/frontend`)}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-colors shadow-md"
+                  >
+                    <Eye className="w-4 h-4" /> Go to Frontend Editor
+                  </button>
+                  <button
+                    onClick={() => { setDuplicateName(`Copy of ${project?.name ?? "Project"}`); setShowDuplicateModal(true); }}
+                    className="w-full flex items-center justify-center gap-2 py-3 border-2 border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 text-gray-700 hover:text-indigo-700 text-sm font-semibold rounded-xl transition-colors"
+                  >
+                    <GitFork className="w-4 h-4" /> Save as New Project
+                  </button>
+                  <button
+                    onClick={() => setDownloadModal(true)}
+                    className="w-full flex items-center justify-center gap-2 py-3 border border-gray-200 hover:border-gray-300 text-gray-500 hover:text-gray-700 text-sm font-medium rounded-xl transition-colors"
+                  >
+                    <FolderDown className="w-4 h-4" /> Download Source Code
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ── Architecture tab ─────────────────────────────────────── */}
-          {tab === "architecture" && architecture && (
+          {!isDeployed && tab === "architecture" && architecture && (
             <div className="flex-1 flex flex-col overflow-hidden">
 
               {/* Deployed lock banner */}
@@ -1474,7 +1620,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
           )}
 
           {/* ── Configure tab ────────────────────────────────────────── */}
-          {tab === "configure" && template && (
+          {!isDeployed && tab === "configure" && template && (
             <div className="flex-1 overflow-auto p-6 bg-white">
               {/* Deployed lock banner */}
               {isDeployed && (
@@ -1614,7 +1760,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
           )}
 
           {/* ── Compile tab ──────────────────────────────────────────── */}
-          {tab === "compile" && (
+          {!isDeployed && tab === "compile" && (
             <div className="flex-1 overflow-auto p-6 bg-white">
               {/* Deployed lock banner */}
               {isDeployed && (
@@ -1810,7 +1956,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
           )}
 
           {/* ── Deploy tab ───────────────────────────────────────────── */}
-          {tab === "deploy" && (
+          {!isDeployed && tab === "deploy" && (
             <div className="flex-1 overflow-auto p-6 bg-white">
               <div className="max-w-md space-y-4">
 
@@ -2128,7 +2274,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
           )}
 
           {/* ── Frontend tab ─────────────────────────────────────────── */}
-          {tab === "frontend" && (
+          {!isDeployed && tab === "frontend" && (
             buildingRight ? (
               <div className="flex-1 flex flex-col items-center justify-center px-4 bg-white">
                 <div className="w-20 h-20 rounded-2xl bg-white shadow-lg flex items-center justify-center mb-6 ring-1 ring-gray-200">
@@ -2511,6 +2657,62 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                 className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
               >
                 <Rocket className="w-4 h-4" /> Deploy Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Duplicate / Save-as-new-project modal ─────────────────────────── */}
+      {showDuplicateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                <GitFork className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Save as New Project</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Creates an editable copy with all your current settings.</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">New project name</label>
+              <input
+                type="text"
+                value={duplicateName}
+                onChange={(e) => setDuplicateName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !duplicating && duplicateName.trim() && duplicateProject()}
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="Enter a name for the new project"
+                autoFocus
+              />
+            </div>
+
+            {duplicateError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-xs text-red-700">
+                {duplicateError}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowDuplicateModal(false); setDuplicateError(""); }}
+                className="flex-1 py-2.5 bg-gray-100 text-gray-700 text-sm rounded-xl hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!duplicateName.trim() || duplicating}
+                onClick={duplicateProject}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                {duplicating ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</>
+                ) : (
+                  <><GitFork className="w-4 h-4" /> Create Copy</>
+                )}
               </button>
             </div>
           </div>
