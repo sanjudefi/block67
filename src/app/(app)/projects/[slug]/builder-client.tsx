@@ -1260,7 +1260,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
           </div>
 
           {/* ── Quick-action suggestions — 3-column grid, all visible ──────── */}
-          {(QUICK_ACTIONS[templateId] ?? []).length > 0 && (
+          {!isDeployed && (QUICK_ACTIONS[templateId] ?? []).length > 0 && (
             <div className="border-t border-gray-100 px-4 pt-3 pb-2">
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Suggestions</p>
               <div className="grid grid-cols-3 gap-1.5">
@@ -1279,7 +1279,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
           )}
 
           {/* ── Feature toggles (boolean params) ── shown above config, prominent */}
-          {template && template.params.some((p) => p.type === "boolean") && (
+          {!isDeployed && template && template.params.some((p) => p.type === "boolean") && (
             <div className="border-t border-gray-100 px-4 pt-3 pb-2">
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Features</p>
               <div className="flex flex-wrap gap-2">
@@ -1312,7 +1312,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
           )}
 
           {/* Quick config accordion — text / color params only */}
-          <div className="border-t border-gray-100 px-4 py-2">
+          {!isDeployed && <div className="border-t border-gray-100 px-4 py-2">
             <button
               onClick={() => setShowConfigPanel(!showConfigPanel)}
               className="flex items-center justify-between w-full text-xs text-gray-400 hover:text-gray-700 py-1.5 transition-colors"
@@ -1344,7 +1344,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                 ))}
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Input box */}
           <div className="border-t border-gray-100 p-3">
@@ -1493,20 +1493,20 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
           )}
 
           {/* ── Architecture tab ─────────────────────────────────────── */}
-          {!isDeployed && tab === "architecture" && architecture && (
+          {tab === "architecture" && architecture && (
             <div className="flex-1 flex flex-col overflow-hidden">
 
-              {/* Deployed lock banner */}
+              {/* Deployed read-only banner */}
               {isDeployed && (
-                <div className="shrink-0 mx-5 mt-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
-                  <span className="text-amber-500 text-lg">🔒</span>
+                <div className="shrink-0 mx-5 mt-4 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                  <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-amber-800">Contract already deployed — no changes allowed</p>
-                    <p className="text-xs text-amber-600">Smart contract is live on-chain. Architecture is read-only. You can still edit the frontend.</p>
+                    <p className="text-sm font-semibold text-gray-600">Read-only — for reference</p>
+                    <p className="text-xs text-gray-400">This is the deployed contract architecture. Duplicate the project to make changes.</p>
                   </div>
                   <button
                     onClick={() => setDownloadModal(true)}
-                    className="shrink-0 flex items-center gap-1.5 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg transition-colors"
+                    className="shrink-0 flex items-center gap-1.5 text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-lg transition-colors"
                   >
                     <FolderDown className="w-3.5 h-3.5" /> Download
                   </button>
@@ -1514,6 +1514,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
               )}
 
               {/* Contract Graph */}
+              <div className={`flex-1 flex flex-col overflow-hidden ${isDeployed ? "pointer-events-none select-none opacity-75" : ""}`}>
               <div className="bg-white border-b border-gray-100 px-5 py-4 flex-shrink-0">
                 <div className="flex items-center justify-between mb-3">
                   <div>
@@ -1616,29 +1617,30 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                   </div>
                 )}
               </div>
+              </div>
             </div>
           )}
 
           {/* ── Configure tab ────────────────────────────────────────── */}
-          {!isDeployed && tab === "configure" && template && (
+          {tab === "configure" && template && (
             <div className="flex-1 overflow-auto p-6 bg-white">
-              {/* Deployed lock banner */}
+              {/* Deployed read-only banner */}
               {isDeployed && (
-                <div className="mb-5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
-                  <span className="text-amber-500 text-lg">🔒</span>
+                <div className="mb-5 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                  <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-amber-800">Contract already deployed — no changes allowed</p>
-                    <p className="text-xs text-amber-600">Configuration is locked after deployment. Download the project to work locally.</p>
+                    <p className="text-sm font-semibold text-gray-600">Read-only — for reference</p>
+                    <p className="text-xs text-gray-400">These are the settings used for your deployed contract.</p>
                   </div>
                   <button
                     onClick={() => setDownloadModal(true)}
-                    className="shrink-0 flex items-center gap-1.5 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg transition-colors"
+                    className="shrink-0 flex items-center gap-1.5 text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-lg transition-colors"
                   >
                     <FolderDown className="w-3.5 h-3.5" /> Download
                   </button>
                 </div>
               )}
-              <div className="max-w-lg">
+              <div className={`max-w-lg ${isDeployed ? "pointer-events-none select-none opacity-75" : ""}`}>
                 <div className={`flex items-center gap-3 bg-gradient-to-r ${template.gradient} rounded-xl p-4 mb-6 text-white`}>
                   <span className="text-2xl">{template.icon}</span>
                   <div>
@@ -1760,25 +1762,25 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
           )}
 
           {/* ── Compile tab ──────────────────────────────────────────── */}
-          {!isDeployed && tab === "compile" && (
+          {tab === "compile" && (
             <div className="flex-1 overflow-auto p-6 bg-white">
-              {/* Deployed lock banner */}
+              {/* Deployed read-only banner */}
               {isDeployed && (
-                <div className="mb-5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
-                  <span className="text-amber-500 text-lg">🔒</span>
+                <div className="mb-5 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                  <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-amber-800">Contract already deployed — no changes allowed</p>
-                    <p className="text-xs text-amber-600">Compilation is locked. The deployed contract cannot be replaced. Download only.</p>
+                    <p className="text-sm font-semibold text-gray-600">Read-only — for reference</p>
+                    <p className="text-xs text-gray-400">This is the compiled contract that was deployed. Duplicate the project to recompile.</p>
                   </div>
                   <button
                     onClick={() => setDownloadModal(true)}
-                    className="shrink-0 flex items-center gap-1.5 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg transition-colors"
+                    className="shrink-0 flex items-center gap-1.5 text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-lg transition-colors"
                   >
                     <FolderDown className="w-3.5 h-3.5" /> Download
                   </button>
                 </div>
               )}
-              <div className="max-w-2xl space-y-5">
+              <div className={`max-w-2xl space-y-5 ${isDeployed ? "pointer-events-none select-none opacity-75" : ""}`}>
 
                 {/* Header */}
                 <div className="flex items-center justify-between">
@@ -1956,9 +1958,19 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
           )}
 
           {/* ── Deploy tab ───────────────────────────────────────────── */}
-          {!isDeployed && tab === "deploy" && (
+          {tab === "deploy" && (
             <div className="flex-1 overflow-auto p-6 bg-white">
-              <div className="max-w-md space-y-4">
+              {/* Deployed read-only banner */}
+              {isDeployed && (
+                <div className="mb-5 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                  <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-600">Read-only — for reference</p>
+                    <p className="text-xs text-gray-400">Contract is already deployed on-chain. Duplicate this project to deploy a new version.</p>
+                  </div>
+                </div>
+              )}
+              <div className={`max-w-md space-y-4 ${isDeployed ? "pointer-events-none select-none opacity-75" : ""}`}>
 
                 {/* Must compile first */}
                 {!compiled && (

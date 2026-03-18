@@ -18,6 +18,14 @@ export async function GET(_req: NextRequest) {
   const projects = await prisma.project.findMany({
     where:   { ownerId: session.user.id },
     orderBy: { updatedAt: "desc" },
+    include: {
+      deployments: {
+        where:   { status: "SUCCESS" },
+        orderBy: { deployedAt: "desc" },
+        take:    1,
+        select:  { contractAddress: true, status: true },
+      },
+    },
   });
 
   return NextResponse.json({ projects });

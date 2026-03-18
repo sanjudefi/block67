@@ -13,7 +13,7 @@ import { UpgradeModal } from "@/components/UpgradeModal";
 import { DomainModal }  from "@/components/DomainModal";
 import {
   Clock, MoreHorizontal, Trash2, Zap, Settings2, ExternalLink,
-  Plus, Palette, ArrowRight, Globe,
+  Plus, Palette, ArrowRight, Globe, Rocket,
 } from "lucide-react";
 
 function timeAgo(d: string) {
@@ -27,6 +27,7 @@ function timeAgo(d: string) {
 interface Project {
   id: string; name: string; slug: string; status: string;
   updatedAt: string; paramValues: Record<string, string>;
+  deployments?: { contractAddress?: string | null; status: string }[];
 }
 
 export default function DashboardPage() {
@@ -151,9 +152,10 @@ export default function DashboardPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {projects.map((project) => {
-                  const tKey   = project.paramValues?._templateKey;
-                  const tmpl   = BUILTIN_TEMPLATES.find((t) => t.id === tKey);
-                  const isLive = project.status === "ACTIVE";
+                  const tKey        = project.paramValues?._templateKey;
+                  const tmpl        = BUILTIN_TEMPLATES.find((t) => t.id === tKey);
+                  const isLive      = project.status === "ACTIVE";
+                  const isDeployed  = isLive && !!project.deployments?.[0]?.contractAddress;
                   return (
                     <div key={project.id}
                       className="group relative bg-white rounded-2xl border border-gray-100 hover:border-indigo-200 hover:shadow-lg transition-all p-5">
@@ -165,7 +167,11 @@ export default function DashboardPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
                             <h3 className="text-gray-900 font-bold text-base truncate">{project.name}</h3>
-                            {isLive
+                            {isDeployed
+                              ? <span className="text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-200 px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 flex items-center gap-0.5">
+                                  <Rocket className="w-2.5 h-2.5" /> Deployed
+                                </span>
+                              : isLive
                               ? <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 flex items-center gap-0.5">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
                                 </span>
