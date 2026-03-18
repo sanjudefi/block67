@@ -17,7 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     role = (token?.role as string) ?? null;
   } catch { /* treat as non-admin */ }
 
-  if (role !== "ADMIN") redirect("/dashboard");
+  if (role !== "ADMIN") redirect("/admin/login");
 
   return (
     <div className="min-h-screen bg-gray-950 flex">

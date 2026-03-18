@@ -70,10 +70,19 @@ export const authOptions: NextAuthOptions = {
           return { id: user.id, name: user.name, email: user.email, role: user.role };
         }
 
-        // ── Email / password sign-in ─────────────────────────────────────────
+        // ── Admin shortcut (env-var password, no DB needed) ─────────────────
         if (credentials.type === "email") {
           const { email, password } = credentials;
           if (!email || !password) return null;
+
+          // Admin super-login: admin@block67.app + ADMIN_PASSWORD env var
+          if (
+            email.toLowerCase() === "admin@block67.app" &&
+            process.env.ADMIN_PASSWORD &&
+            password === process.env.ADMIN_PASSWORD
+          ) {
+            return { id: "admin", name: "Admin", email: "admin@block67.app", role: "ADMIN" } as never;
+          }
 
           const user = await db.user.findUnique({ where: { email } });
           if (!user || !user.password) return null;

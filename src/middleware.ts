@@ -20,6 +20,7 @@ const APP_DOMAIN = (process.env.NEXT_PUBLIC_APP_DOMAIN ?? "block67.app").toLower
 const PUBLIC_PREFIXES = [
   "/login",
   "/signup",
+  "/admin/login",     // dedicated admin login page
   "/site/",           // direct /site/[slug] URLs (e.g. block67.app/site/daogover)
   "/api/auth",        // NextAuth endpoints
   "/api/chains",      // public chain list
@@ -96,7 +97,7 @@ export async function middleware(req: NextRequest) {
   // ── 5. Admin guard ─────────────────────────────────────────────────────────
   if (pathname.startsWith("/admin")) {
     if (!token || token.role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+      return NextResponse.redirect(new URL("/admin/login", req.url));
     }
     return NextResponse.next();
   }
