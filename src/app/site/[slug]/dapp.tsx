@@ -77,6 +77,56 @@ const ERC721_ABI = [
   "function totalSupply() view returns (uint256)",
 ];
 
+const PUMP_ABI = [
+  "function name() view returns (string)",
+  "function symbol() view returns (string)",
+  "function decimals() view returns (uint8)",
+  "function totalSupply() view returns (uint256)",
+  "function balanceOf(address) view returns (uint256)",
+  "function currentPrice() view returns (uint256)",
+  "function buy() payable",
+  "function sell(uint256 amount)",
+  "event TokensBought(address indexed buyer, uint256 ethIn, uint256 tokensOut, uint256 newPrice)",
+  "event TokensSold(address indexed seller, uint256 tokensIn, uint256 ethOut, uint256 newPrice)",
+];
+
+const OPEN_EDITION_ABI = [
+  "function name() view returns (string)",
+  "function symbol() view returns (string)",
+  "function MAX_SUPPLY() view returns (uint256)",
+  "function MINT_PRICE() view returns (uint256)",
+  "function saleActive() view returns (bool)",
+  "function balanceOf(address) view returns (uint256)",
+  "function mint(uint256 quantity) payable",
+  "function ownerMint(address to, uint256 qty)",
+  "function setSaleActive(bool active)",
+  "function totalMinted() view returns (uint256)",
+  "function owner() view returns (address)",
+  "function withdraw()",
+];
+
+const TOKEN_GATE_ABI = [
+  "function hasAccess(address user) view returns (bool)",
+  "function minBalance() view returns (uint256)",
+  "function gateToken() view returns (address)",
+  "function checkAndGetAccess() returns (string)",
+  "function contentTitle() view returns (string)",
+];
+
+const CLICK_EARN_ABI = [
+  "function click()",
+  "function claim()",
+  "function deposit() payable",
+  "function rewardPerClick() view returns (uint256)",
+  "function dailyLimit() view returns (uint256)",
+  "function cooldown() view returns (uint256)",
+  "function totalClicks(address) view returns (uint256)",
+  "function pendingRewards(address) view returns (uint256)",
+  "function lastClickTime(address) view returns (uint256)",
+  "function timeUntilNextClick(address) view returns (uint256)",
+  "function owner() view returns (address)",
+];
+
 const STAKING_ABI = [
   "function APY_BPS() view returns (uint256)",
   "function LOCK_SECS() view returns (uint256)",
@@ -1259,6 +1309,600 @@ function ContractInfo({ d, accent }: { d: DeploymentInfo; accent: string }) {
   );
 }
 
+// ── Pump Token dApp ───────────────────────────────────────────────────────────
+
+function PumpTokenDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
+  const abi = (d.contractAbi as string[] | null) ?? PUMP_ABI;
+  const { wallet, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
+
+  const [info,    setInfo]    = useState({ name: config.tokenName || "PumpToken", symbol: config.symbol || "PUMP", decimals: 18, price: "0", supply: "0" });
+  const [balance, setBalance] = useState("0");
+  const [ethAmt,  setEthAmt]  = useState("");
+  const [tokAmt,  setTokAmt]  = useState("");
+  const [busy,    setBusy]    = useState(false);
+  const [toast,   setToast]   = useState({ msg: "", ok: true });
+  const [tx,      setTx]      = useState("");
+
+  const showToast = (msg: string, ok: boolean) => { setToast({ msg, ok }); setTimeout(() => setToast({ msg: "", ok: true }), 5000); };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { ethers } = await import("ethers");
+        const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+        const contract   = new ethers.Contract(d.contractAddress, abi, provider);
+        const [name, symbol, price, supply] = await Promise.all([
+          contract.name().catch(() => config.tokenName || "PumpToken"),
+          contract.symbol().catch(() => config.symbol || "PUMP"),
+          contract.currentPrice().catch(() => 0n),
+          contract.totalSupply().catch(() => 0n),
+        ]);
+        setInfo({ name, symbol, decimals: 18, price: fmtUnits(price, 18, 8), supply: fmtUnits(supply, 18, 2) });
+      } catch { /* ignore */ }
+    })();
+  }, [d, abi, config]);
+
+  useEffect(() => {
+    if (!wallet.connected) return;
+    (async () => {
+      try {
+        const { ethers } = await import("ethers");
+        const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+        const contract   = new ethers.Contract(d.contractAddress, abi, provider);
+        const bal = await contract.balanceOf(wallet.address).catch(() => 0n);
+        setBalance(fmtUnits(bal, 18, 4));
+      } catch { /* ignore */ }
+    })();
+  }, [wallet, d, abi]);
+
+  const doBuy = async () => {
+    if (!ethAmt) return;
+    setBusy(true);
+    try {
+      const { ethers } = await import("ethers");
+      const provider   = new ethers.BrowserProvider(window.ethereum);
+      const signer     = await provider.getSigner();
+      const contract   = new ethers.Contract(d.contractAddress, abi, signer);
+      const receipt    = await (await contract.buy({ value: ethers.parseEther(ethAmt) })).wait();
+      setTx(receipt?.hash ?? "");
+      showToast(`Bought tokens with ${ethAmt} ETH!`, true);
+      setEthAmt("");
+    } catch (e: unknown) { showToast(e instanceof Error ? e.message.slice(0, 100) : "Buy failed", false); }
+    finally { setBusy(false); }
+  };
+
+  const doSell = async () => {
+    if (!tokAmt) return;
+    setBusy(true);
+    try {
+      const { ethers } = await import("ethers");
+      const provider   = new ethers.BrowserProvider(window.ethereum);
+      const signer     = await provider.getSigner();
+      const contract   = new ethers.Contract(d.contractAddress, abi, signer);
+      const receipt    = await (await contract.sell(parseUnits(tokAmt, 18))).wait();
+      setTx(receipt?.hash ?? "");
+      showToast(`Sold ${tokAmt} tokens!`, true);
+      setTokAmt("");
+    } catch (e: unknown) { showToast(e instanceof Error ? e.message.slice(0, 100) : "Sell failed", false); }
+    finally { setBusy(false); }
+  };
+
+  const accent = getAccent(config);
+  const bg     = getBg(config);
+  const rgb    = hexToRgb(accent);
+  const emoji  = config.emoji || "📈";
+
+  return (
+    <div className="min-h-screen" style={{ background: bg, color: "#fff" }}>
+      <SiteNav name={`${emoji} ${info.name}`} symbol={info.symbol} chainName={d.chainName} accent={accent}
+        wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
+      <SiteHero name={info.name} symbol={info.symbol} description={config.description || "Bonding curve token"} accent={accent} config={config}
+        connect={connect} walletConnected={wallet.connected} />
+
+      <div className="max-w-lg mx-auto px-4 pb-16 space-y-4">
+        <Toast msg={toast.msg} ok={toast.ok} />
+
+        {/* Price card */}
+        <GlassCard accent={accent} className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-white/40">Current Price</p>
+              <p className="text-2xl font-extrabold text-white">{info.price} ETH</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-white/40">Circulating Supply</p>
+              <p className="text-sm font-bold text-white">{info.supply} {info.symbol}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-emerald-400">
+            <TrendingUp className="w-3.5 h-3.5" />
+            Price rises with every purchase
+          </div>
+        </GlassCard>
+
+        {wallet.connected && !onWrongChain ? (
+          <GlassCard accent={accent} className="space-y-4">
+            <h3 className="font-semibold text-white text-sm flex items-center gap-1.5"><Zap className="w-4 h-4" style={{ color: accent }} /> Trade {info.symbol}</h3>
+            {parseFloat(balance) > 0 && (
+              <p className="text-xs text-white/40">Your balance: <span className="text-white/70 font-semibold">{balance} {info.symbol}</span></p>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-emerald-400">Buy with ETH</p>
+                <input value={ethAmt} onChange={e => setEthAmt(e.target.value)} placeholder="0.01 ETH"
+                  className="w-full text-sm rounded-xl px-3 py-2.5 outline-none bg-white/5 border border-white/15 text-white placeholder-white/30 focus:border-white/30" />
+                <button onClick={doBuy} disabled={busy || !ethAmt}
+                  className="w-full py-2.5 text-white text-sm font-bold rounded-xl transition-all hover:opacity-90 disabled:opacity-30 flex items-center justify-center gap-1.5"
+                  style={{ background: `linear-gradient(135deg, ${accent}, rgba(${rgb},0.6))` }}>
+                  {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TrendingUp className="w-3.5 h-3.5" />} Buy
+                </button>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-red-400">Sell Tokens</p>
+                <input value={tokAmt} onChange={e => setTokAmt(e.target.value)} placeholder="100 PUMP"
+                  className="w-full text-sm rounded-xl px-3 py-2.5 outline-none bg-white/5 border border-white/15 text-white placeholder-white/30 focus:border-white/30" />
+                <button onClick={doSell} disabled={busy || !tokAmt}
+                  className="w-full py-2.5 text-white/70 text-sm font-bold rounded-xl transition-all hover:bg-white/10 disabled:opacity-30 flex items-center justify-center gap-1.5"
+                  style={{ border: "1px solid rgba(255,255,255,0.2)" }}>
+                  {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Sell
+                </button>
+              </div>
+            </div>
+          </GlassCard>
+        ) : !wallet.connected ? (
+          <ConnectPrompt connect={connect} accent={accent} />
+        ) : null}
+
+        {tx && <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /><TxLink hash={tx} explorerUrl={d.explorerUrl} accent={accent} /></div>}
+        <ContractInfo d={d} accent={accent} />
+      </div>
+      <SiteSections config={config} accent={accent} />
+      <SocialSection config={config} accent={accent} />
+      <SiteFooter name={info.name} accent={accent} />
+      <WhatsAppFloat number={config._whatsapp || ""} />
+    </div>
+  );
+}
+
+// ── NFT Mint Page dApp ────────────────────────────────────────────────────────
+
+function NFTMintDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
+  const abi = (d.contractAbi as string[] | null) ?? OPEN_EDITION_ABI;
+  const { wallet, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
+
+  const [info,    setInfo]    = useState({ name: config.collectionName || "NFT Drop", symbol: config.symbol || "MNFT", max: BigInt(0), price: BigInt(0), minted: BigInt(0), saleActive: false, owner: "" });
+  const [balance, setBalance] = useState(BigInt(0));
+  const [qty,     setQty]     = useState(1);
+  const [busy,    setBusy]    = useState(false);
+  const [toast,   setToast]   = useState({ msg: "", ok: true });
+  const [tx,      setTx]      = useState("");
+
+  const showToast = (msg: string, ok: boolean) => { setToast({ msg, ok }); setTimeout(() => setToast({ msg: "", ok: true }), 5000); };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { ethers } = await import("ethers");
+        const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+        const contract   = new ethers.Contract(d.contractAddress, abi, provider);
+        const [name, symbol, max, price, minted, saleActive, owner] = await Promise.all([
+          contract.name().catch(() => config.collectionName || "NFT Drop"),
+          contract.symbol().catch(() => "MNFT"),
+          contract.MAX_SUPPLY().catch(() => BigInt(config.maxSupply || "1000")),
+          contract.MINT_PRICE().catch(() => BigInt(0)),
+          contract.totalMinted().catch(() => 0n),
+          contract.saleActive().catch(() => false),
+          contract.owner().catch(() => ""),
+        ]);
+        setInfo({ name, symbol, max, price, minted, saleActive, owner });
+      } catch { /* ignore */ }
+    })();
+  }, [d, abi, config]);
+
+  useEffect(() => {
+    if (!wallet.connected) return;
+    (async () => {
+      try {
+        const { ethers } = await import("ethers");
+        const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+        const contract   = new ethers.Contract(d.contractAddress, abi, provider);
+        setBalance(await contract.balanceOf(wallet.address).catch(() => 0n));
+      } catch { /* ignore */ }
+    })();
+  }, [wallet, d, abi]);
+
+  const mintNFT = async () => {
+    setBusy(true);
+    try {
+      const { ethers } = await import("ethers");
+      const provider   = new ethers.BrowserProvider(window.ethereum);
+      const signer     = await provider.getSigner();
+      const contract   = new ethers.Contract(d.contractAddress, abi, signer);
+      const value      = info.price * BigInt(qty);
+      const receipt    = await (await contract.mint(qty, { value })).wait();
+      setTx(receipt?.hash ?? "");
+      showToast(`Minted ${qty} NFT${qty > 1 ? "s" : ""}!`, true);
+    } catch (e: unknown) { showToast(e instanceof Error ? e.message.slice(0, 100) : "Mint failed", false); }
+    finally { setBusy(false); }
+  };
+
+  const toggleSale = async () => {
+    setBusy(true);
+    try {
+      const { ethers } = await import("ethers");
+      const provider   = new ethers.BrowserProvider(window.ethereum);
+      const signer     = await provider.getSigner();
+      const contract   = new ethers.Contract(d.contractAddress, abi, signer);
+      await (await contract.setSaleActive(!info.saleActive)).wait();
+      setInfo(prev => ({ ...prev, saleActive: !prev.saleActive }));
+      showToast(info.saleActive ? "Sale paused" : "Sale activated!", true);
+    } catch (e: unknown) { showToast(e instanceof Error ? e.message.slice(0, 100) : "Failed", false); }
+    finally { setBusy(false); }
+  };
+
+  const accent   = getAccent(config);
+  const bg       = getBg(config);
+  const rgb      = hexToRgb(accent);
+  const isOwner  = wallet.connected && info.owner && wallet.address.toLowerCase() === info.owner.toLowerCase();
+  const pct      = info.max > 0n ? Number((info.minted * 100n) / info.max) : 0;
+  const totalCost = fmtUnits(info.price * BigInt(qty), 18, 4);
+
+  return (
+    <div className="min-h-screen" style={{ background: bg, color: "#fff" }}>
+      <SiteNav name={`🎨 ${info.name}`} symbol={info.symbol} chainName={d.chainName} accent={accent}
+        wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
+      <SiteHero name={info.name} symbol={info.symbol} description={config.description || "A limited NFT drop."} accent={accent} config={config}
+        connect={connect} walletConnected={wallet.connected} />
+
+      <div className="max-w-lg mx-auto px-4 pb-16 space-y-4">
+        <Toast msg={toast.msg} ok={toast.ok} />
+
+        {/* Supply progress */}
+        <GlassCard accent={accent} className="space-y-3">
+          <div className="flex justify-between text-sm">
+            <span className="text-white/60">Minted</span>
+            <span className="font-bold text-white">{info.minted.toString()} / {info.max.toString()}</span>
+          </div>
+          <div className="h-3 rounded-full overflow-hidden bg-white/10">
+            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${accent}, rgba(${rgb},0.6))` }} />
+          </div>
+          <p className="text-xs text-white/40">{pct}% minted · {(Number(info.max) - Number(info.minted)).toString()} remaining</p>
+        </GlassCard>
+
+        {wallet.connected && balance > 0n && (
+          <GlassCard accent={accent}><p className="text-sm text-white/60">Your NFTs: <span className="text-white font-bold">{balance.toString()}</span></p></GlassCard>
+        )}
+
+        {wallet.connected && !onWrongChain ? (
+          <GlassCard accent={accent} className="space-y-4">
+            <h3 className="font-semibold text-white text-sm">Mint NFT</h3>
+            {!info.saleActive && !isOwner && (
+              <div className="flex items-center gap-2 text-sm text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0" /> Sale is not active yet
+              </div>
+            )}
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-white/60 flex-1">Quantity</p>
+              <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-1.5">
+                <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-6 h-6 flex items-center justify-center text-white/60 hover:text-white font-bold">−</button>
+                <span className="w-6 text-center text-sm font-bold text-white">{qty}</span>
+                <button onClick={() => setQty(Math.min(10, qty + 1))} className="w-6 h-6 flex items-center justify-center text-white/60 hover:text-white font-bold">+</button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-white/50">Total cost</span>
+              <span className="font-bold text-white">{totalCost} {d.nativeCurrency}</span>
+            </div>
+            <button onClick={mintNFT} disabled={busy || !info.saleActive}
+              className="w-full py-3 font-bold rounded-xl transition-all hover:opacity-90 disabled:opacity-30 flex items-center justify-center gap-2 text-white"
+              style={{ background: `linear-gradient(135deg, ${accent}, rgba(${rgb},0.6))`, boxShadow: `0 0 20px rgba(${rgb},0.3)` }}>
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
+              {busy ? "Minting…" : `Mint ${qty} NFT${qty > 1 ? "s" : ""}`}
+            </button>
+          </GlassCard>
+        ) : !wallet.connected ? (
+          <ConnectPrompt connect={connect} accent={accent} />
+        ) : null}
+
+        {isOwner && (
+          <GlassCard accent={accent} className="space-y-3">
+            <h3 className="font-semibold text-white text-sm flex items-center gap-1.5"><Zap className="w-4 h-4" style={{ color: accent }} /> Owner Controls</h3>
+            <button onClick={toggleSale} disabled={busy}
+              className={`w-full py-2.5 text-sm font-semibold rounded-xl border transition-all ${info.saleActive ? "border-red-500/30 text-red-400 bg-red-500/10 hover:bg-red-500/20" : "border-emerald-500/30 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"}`}>
+              {info.saleActive ? "⏸ Pause Sale" : "▶ Activate Sale"}
+            </button>
+          </GlassCard>
+        )}
+
+        {tx && <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /><TxLink hash={tx} explorerUrl={d.explorerUrl} accent={accent} /></div>}
+        <ContractInfo d={d} accent={accent} />
+      </div>
+      <SiteSections config={config} accent={accent} />
+      <SocialSection config={config} accent={accent} />
+      <SiteFooter name={info.name} accent={accent} />
+      <WhatsAppFloat number={config._whatsapp || ""} />
+    </div>
+  );
+}
+
+// ── Token-Gated Access dApp ───────────────────────────────────────────────────
+
+function TokenGatedDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
+  const abi = (d.contractAbi as string[] | null) ?? TOKEN_GATE_ABI;
+  const { wallet, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
+
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+  const [checking,  setChecking]  = useState(false);
+  const [minBal,    setMinBal]    = useState(config.minBalance || "1");
+  const [toast,     setToast]     = useState({ msg: "", ok: true });
+
+  const showToast = (msg: string, ok: boolean) => { setToast({ msg, ok }); setTimeout(() => setToast({ msg: "", ok: true }), 5000); };
+
+  const checkAccess = useCallback(async () => {
+    if (!wallet.connected) return;
+    setChecking(true);
+    try {
+      const { ethers } = await import("ethers");
+      const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+      const contract   = new ethers.Contract(d.contractAddress, abi, provider);
+      const [access, min] = await Promise.all([
+        contract.hasAccess(wallet.address).catch(() => false),
+        contract.minBalance().catch(() => BigInt(config.minBalance || "1")),
+      ]);
+      setHasAccess(access);
+      setMinBal(fmtUnits(min, 18, 0));
+    } catch { setHasAccess(false); }
+    finally { setChecking(false); }
+  }, [wallet.connected, wallet.address, d, abi, config]);
+
+  useEffect(() => { if (wallet.connected) checkAccess(); }, [wallet.connected, checkAccess]);
+
+  const accent  = getAccent(config);
+  const bg      = getBg(config);
+  const rgb     = hexToRgb(accent);
+  const title   = config.contentTitle || "Members Only";
+  const desc    = config.description  || "Hold the token to unlock exclusive access.";
+  const url     = config.accessUrl    || "";
+
+  return (
+    <div className="min-h-screen" style={{ background: bg, color: "#fff" }}>
+      <nav className="sticky top-0 z-50 border-b border-white/10" style={{ background: `rgba(10,10,15,0.85)`, backdropFilter: "blur(16px)" }}>
+        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
+          <span className="font-bold text-white text-sm flex-1">🔐 {title}</span>
+          <NetBadge chainName={d.chainName} />
+          {wallet.connected
+            ? <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/20 bg-white/5">
+                <div className={`w-1.5 h-1.5 rounded-full ${hasAccess ? "bg-emerald-400" : "bg-red-400"}`} />
+                <span className="text-xs text-white/70 font-mono">{shortenAddress(wallet.address)}</span>
+              </div>
+            : <button onClick={connect} className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white" style={{ background: accent }}>Connect Wallet</button>
+          }
+        </div>
+      </nav>
+
+      <div className="max-w-md mx-auto px-4 py-16 text-center">
+        <Toast msg={toast.msg} ok={toast.ok} />
+
+        <div className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6"
+          style={{ background: `rgba(${rgb},0.12)`, border: `2px solid rgba(${rgb},0.3)` }}>
+          <span className="text-5xl">{hasAccess ? "🔓" : "🔐"}</span>
+        </div>
+
+        <h1 className="text-3xl font-extrabold text-white mb-3">{title}</h1>
+        <p className="text-white/60 mb-8">{desc}</p>
+
+        <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl mb-8 inline-flex"
+          style={{ background: `rgba(${rgb},0.12)`, border: `1px solid rgba(${rgb},0.25)` }}>
+          <Coins className="w-4 h-4" style={{ color: accent }} />
+          <span className="text-sm font-semibold" style={{ color: accent }}>
+            Requires {minBal}+ token{Number(minBal) !== 1 ? "s" : ""} in wallet
+          </span>
+        </div>
+
+        {!wallet.connected ? (
+          <button onClick={connect}
+            className="w-full py-4 rounded-xl text-white font-bold text-lg transition-all hover:opacity-90"
+            style={{ background: `linear-gradient(135deg, ${accent}, rgba(${rgb},0.7))` }}>
+            Connect Wallet to Verify
+          </button>
+        ) : onWrongChain ? (
+          <button onClick={switchChain}
+            className="w-full py-4 rounded-xl font-bold text-amber-400 bg-amber-500/20 border border-amber-500/30">
+            Switch Network
+          </button>
+        ) : checking ? (
+          <div className="flex items-center justify-center gap-2 py-4 text-white/50">
+            <Loader2 className="w-5 h-5 animate-spin" /> Verifying token balance…
+          </div>
+        ) : hasAccess ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3 justify-center">
+              <CheckCircle2 className="w-5 h-5" /> Access granted!
+            </div>
+            {url && (
+              <a href={url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-4 rounded-xl text-white font-bold text-lg transition-all hover:opacity-90"
+                style={{ background: `linear-gradient(135deg, ${accent}, rgba(${rgb},0.7))` }}>
+                Enter Members Area <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-red-400 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 justify-center">
+              <AlertCircle className="w-5 h-5" /> Insufficient token balance
+            </div>
+            <p className="text-sm text-white/40">Get more tokens and try again.</p>
+            <button onClick={checkAccess} className="text-sm text-white/50 hover:text-white/80 flex items-center gap-1.5 mx-auto">
+              <RefreshCw className="w-3.5 h-3.5" /> Re-check balance
+            </button>
+          </div>
+        )}
+        <div className="mt-8"><ContractInfo d={d} accent={accent} /></div>
+      </div>
+      <SiteFooter name={title} accent={accent} />
+    </div>
+  );
+}
+
+// ── Click-to-Earn dApp ────────────────────────────────────────────────────────
+
+function ClickToEarnDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
+  const abi = (d.contractAbi as string[] | null) ?? CLICK_EARN_ABI;
+  const { wallet, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
+
+  const [reward,    setReward]    = useState("0");
+  const [pending,   setPending]   = useState("0");
+  const [clicks,    setClicks]    = useState(0);
+  const [coolLeft,  setCoolLeft]  = useState(0);
+  const [busy,      setBusy]      = useState(false);
+  const [toast,     setToast]     = useState({ msg: "", ok: true });
+  const [tx,        setTx]        = useState("");
+  const [animating, setAnimating] = useState(false);
+
+  const showToast = (msg: string, ok: boolean) => { setToast({ msg, ok }); setTimeout(() => setToast({ msg: "", ok: true }), 5000); };
+
+  const loadState = useCallback(async () => {
+    if (!wallet.connected) return;
+    try {
+      const { ethers } = await import("ethers");
+      const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+      const contract   = new ethers.Contract(d.contractAddress, abi, provider);
+      const [rpc, pend, ttl, tot] = await Promise.all([
+        contract.rewardPerClick().catch(() => 0n),
+        contract.pendingRewards(wallet.address).catch(() => 0n),
+        contract.timeUntilNextClick(wallet.address).catch(() => 0n),
+        contract.totalClicks(wallet.address).catch(() => 0n),
+      ]);
+      setReward(fmtUnits(rpc, 18, 6));
+      setPending(fmtUnits(pend, 18, 6));
+      setCoolLeft(Number(ttl));
+      setClicks(Number(tot));
+    } catch { /* ignore */ }
+  }, [wallet.connected, wallet.address, d, abi]);
+
+  useEffect(() => { loadState(); }, [loadState]);
+
+  // Countdown timer
+  useEffect(() => {
+    if (coolLeft <= 0) return;
+    const t = setInterval(() => setCoolLeft(c => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [coolLeft]);
+
+  const doClick = async () => {
+    if (coolLeft > 0 || busy) return;
+    setAnimating(true);
+    setBusy(true);
+    setTimeout(() => setAnimating(false), 400);
+    try {
+      const { ethers } = await import("ethers");
+      const provider   = new ethers.BrowserProvider(window.ethereum);
+      const signer     = await provider.getSigner();
+      const contract   = new ethers.Contract(d.contractAddress, abi, signer);
+      await (await contract.click()).wait();
+      setClicks(c => c + 1);
+      showToast(`+${reward} ETH earned!`, true);
+      setCoolLeft(Number(config.cooldown || 3));
+      await loadState();
+    } catch (e: unknown) { showToast(e instanceof Error ? e.message.slice(0, 100) : "Click failed", false); }
+    finally { setBusy(false); }
+  };
+
+  const doClaim = async () => {
+    if (!parseFloat(pending) || busy) return;
+    setBusy(true);
+    try {
+      const { ethers } = await import("ethers");
+      const provider   = new ethers.BrowserProvider(window.ethereum);
+      const signer     = await provider.getSigner();
+      const contract   = new ethers.Contract(d.contractAddress, abi, signer);
+      const receipt    = await (await contract.claim()).wait();
+      setTx(receipt?.hash ?? "");
+      showToast(`Claimed ${pending} ETH!`, true);
+      setPending("0");
+      await loadState();
+    } catch (e: unknown) { showToast(e instanceof Error ? e.message.slice(0, 100) : "Claim failed", false); }
+    finally { setBusy(false); }
+  };
+
+  const accent  = getAccent(config);
+  const bg      = getBg(config);
+  const rgb     = hexToRgb(accent);
+  const name    = config.gameName || "TapToEarn";
+  const emoji   = config.emoji   || "👆";
+  const canClick = coolLeft <= 0 && !busy && wallet.connected && !onWrongChain;
+
+  return (
+    <div className="min-h-screen" style={{ background: bg, color: "#fff" }}>
+      <SiteNav name={`${emoji} ${name}`} symbol="EARN" chainName={d.chainName} accent={accent}
+        wallet={wallet} connect={connect} onWrongChain={onWrongChain} switchChain={switchChain} />
+      <SiteHero name={name} symbol="EARN" description={config.description || "Tap to earn ETH rewards."} accent={accent} config={config}
+        connect={connect} walletConnected={wallet.connected} />
+
+      <div className="max-w-lg mx-auto px-4 pb-16 space-y-4">
+        <Toast msg={toast.msg} ok={toast.ok} />
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Your Clicks",  value: clicks.toString() },
+            { label: "Pending ETH",  value: pending },
+            { label: "Per Click",    value: reward + " ETH" },
+          ].map(s => (
+            <GlassCard key={s.label} accent={accent} className="text-center !p-3">
+              <p className="text-[10px] text-white/40 mb-0.5">{s.label}</p>
+              <p className="text-sm font-bold text-white">{s.value}</p>
+            </GlassCard>
+          ))}
+        </div>
+
+        {/* Tap button */}
+        {wallet.connected && !onWrongChain ? (
+          <GlassCard accent={accent} className="flex flex-col items-center py-8 space-y-6">
+            <div className="relative">
+              <div className={`absolute inset-0 rounded-full blur-2xl opacity-40 transition-all ${animating ? "scale-125" : "scale-100"}`} style={{ background: accent }} />
+              <button
+                onClick={doClick}
+                disabled={!canClick}
+                className={`relative w-40 h-40 rounded-full text-6xl flex items-center justify-center transition-all select-none ${animating ? "scale-90" : "scale-100"} ${canClick ? "hover:scale-105 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
+                style={{
+                  background: `radial-gradient(circle, rgba(${rgb},0.4), rgba(${rgb},0.15))`,
+                  border: `2px solid rgba(${rgb},0.6)`,
+                  boxShadow: canClick ? `0 0 40px rgba(${rgb},0.5)` : "none",
+                }}>
+                {emoji}
+              </button>
+            </div>
+            {coolLeft > 0 ? (
+              <p className="text-sm text-white/50">Next tap in <span className="font-bold text-white">{coolLeft}s</span></p>
+            ) : (
+              <p className="text-sm font-bold" style={{ color: accent }}>Tap to earn {reward} ETH!</p>
+            )}
+            {parseFloat(pending) > 0 && (
+              <button onClick={doClaim} disabled={busy}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+                style={{ background: `linear-gradient(135deg, #10b981, #059669)` }}>
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Coins className="w-4 h-4" />}
+                Claim {pending} ETH
+              </button>
+            )}
+          </GlassCard>
+        ) : !wallet.connected ? (
+          <ConnectPrompt connect={connect} accent={accent} />
+        ) : null}
+
+        {tx && <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /><TxLink hash={tx} explorerUrl={d.explorerUrl} accent={accent} /></div>}
+        <ContractInfo d={d} accent={accent} />
+      </div>
+      <SiteSections config={config} accent={accent} />
+      <SocialSection config={config} accent={accent} />
+      <SiteFooter name={name} accent={accent} />
+      <WhatsAppFloat number={config._whatsapp || ""} />
+    </div>
+  );
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export function ProjectDApp({ data }: { data: ProjectData }) {
@@ -1321,11 +1965,15 @@ export function ProjectDApp({ data }: { data: ProjectData }) {
 
   const props = { d, config, projectSlug: data.slug };
   switch (templateKey) {
-    case "erc20-token":      return <ERC20DApp    {...props} />;
-    case "meme-token":       return <ERC20DApp    {...props} />;
-    case "nft-collection":   return <NFTDApp      {...props} />;
-    case "dao-governance":   return <DAODApp      {...props} />;
-    case "staking-dashboard":return <StakingDApp  {...props} />;
-    default:                 return <ERC20DApp    {...props} />;
+    case "erc20-token":      return <ERC20DApp       {...props} />;
+    case "meme-token":       return <ERC20DApp       {...props} />;
+    case "nft-collection":   return <NFTDApp         {...props} />;
+    case "dao-governance":   return <DAODApp         {...props} />;
+    case "staking-dashboard":return <StakingDApp     {...props} />;
+    case "pump-token":       return <PumpTokenDApp   {...props} />;
+    case "nft-mint":         return <NFTMintDApp     {...props} />;
+    case "token-gated":      return <TokenGatedDApp  {...props} />;
+    case "click-to-earn":    return <ClickToEarnDApp {...props} />;
+    default:                 return <ERC20DApp       {...props} />;
   }
 }

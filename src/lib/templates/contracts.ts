@@ -235,6 +235,107 @@ export const CONTRACT_ARCHITECTURES: Record<TemplateId, TemplateArchitecture> = 
       },
     ],
   },
+
+  // ── New viral templates ──────────────────────────────────────────────────────
+
+  "pump-token": {
+    contracts: [
+      {
+        id: "pump",
+        name: "PumpToken",
+        standard: "Custom",
+        color: "#22c55e",
+        connects: ["curve"],
+        modules: [
+          { id: "erc20",    name: "ERC-20 Base",   description: "Name, symbol, balances",           defaultEnabled: true,  icon: "🪙", immutable: true },
+          { id: "buy",      name: "Buy()",          description: "Buy tokens by sending ETH",        defaultEnabled: true,  icon: "📈", immutable: true },
+          { id: "sell",     name: "Sell()",         description: "Sell tokens back for ETH",         defaultEnabled: true,  icon: "📉", immutable: true },
+          { id: "events",   name: "Price Events",   description: "Emit price on every trade",        defaultEnabled: true,  icon: "📡", immutable: true },
+        ],
+      },
+      {
+        id: "curve",
+        name: "BondingCurve",
+        standard: "Custom",
+        color: "#10b981",
+        connects: [],
+        modules: [
+          { id: "linear",   name: "Linear Curve",  description: "Price rises linearly with supply", defaultEnabled: true,  icon: "📊", immutable: true },
+          { id: "slippage", name: "Slippage Guard", description: "Max 5% slippage per trade",        defaultEnabled: true,  icon: "🛡️" },
+          { id: "maxbuy",   name: "Max Buy",        description: "Cap single purchase size",         defaultEnabled: false, icon: "🐋" },
+        ],
+      },
+    ],
+  },
+
+  "nft-mint": {
+    contracts: [
+      {
+        id: "open_edition",
+        name: "OpenEditionNFT",
+        standard: "ERC-721",
+        color: "#8b5cf6",
+        connects: [],
+        modules: [
+          { id: "metadata", name: "Metadata",      description: "Name, symbol, base URI",           defaultEnabled: true,  icon: "📄", immutable: true },
+          { id: "mint",     name: "Public Mint",   description: "Anyone can mint for ETH",          defaultEnabled: true,  icon: "🎨", immutable: true, configKey: "mintPrice" },
+          { id: "supply",   name: "Max Supply",    description: "Hard cap on total minted",         defaultEnabled: true,  icon: "📊", immutable: true, configKey: "maxSupply" },
+          { id: "withdraw", name: "Withdraw",      description: "Owner withdraws mint proceeds",    defaultEnabled: true,  icon: "💰", immutable: true },
+          { id: "pause",    name: "Pause/Resume",  description: "Owner can pause minting",          defaultEnabled: true,  icon: "⏸️" },
+          { id: "batch",    name: "Batch Mint",    description: "Mint up to 10 at once",            defaultEnabled: true,  icon: "⚡" },
+        ],
+      },
+    ],
+  },
+
+  "token-gated": {
+    contracts: [
+      {
+        id: "gate",
+        name: "TokenGatedAccess",
+        standard: "Custom",
+        color: "#6366f1",
+        connects: [],
+        modules: [
+          { id: "verify",   name: "Balance Check", description: "Check token balance on-chain",    defaultEnabled: true,  icon: "✅", immutable: true, configKey: "minBalance" },
+          { id: "erc20gate",name: "ERC-20 Gate",   description: "Gate using any ERC-20 token",     defaultEnabled: true,  icon: "🪙" },
+          { id: "nftgate",  name: "NFT Gate",      description: "Gate using ERC-721 ownership",    defaultEnabled: false, icon: "🖼️" },
+          { id: "events",   name: "Access Events", description: "Emit granted/denied on-chain",    defaultEnabled: true,  icon: "📡", immutable: true },
+          { id: "update",   name: "Update Config", description: "Owner can change gate settings",  defaultEnabled: true,  icon: "⚙️" },
+        ],
+      },
+    ],
+  },
+
+  "click-to-earn": {
+    contracts: [
+      {
+        id: "game",
+        name: "ClickToEarn",
+        standard: "Custom",
+        color: "#06b6d4",
+        connects: ["rewards"],
+        modules: [
+          { id: "click",    name: "Click()",       description: "Record click and add reward",      defaultEnabled: true,  icon: "👆", immutable: true },
+          { id: "cooldown", name: "Cooldown",      description: "Seconds between clicks",           defaultEnabled: true,  icon: "⏱️", configKey: "cooldown" },
+          { id: "daily",    name: "Daily Limit",   description: "Max ETH claimable per day",        defaultEnabled: true,  icon: "📅", configKey: "dailyLimit" },
+          { id: "claim",    name: "Claim()",       description: "Withdraw earned ETH",              defaultEnabled: true,  icon: "💸", immutable: true },
+        ],
+      },
+      {
+        id: "rewards",
+        name: "RewardPool",
+        standard: "Custom",
+        color: "#0891b2",
+        connects: [],
+        modules: [
+          { id: "deposit",  name: "Deposit",       description: "Owner funds the reward pool",      defaultEnabled: true,  icon: "🏦", immutable: true },
+          { id: "leaderboard",name:"Leaderboard",  description: "Track top clickers on-chain",      defaultEnabled: false, icon: "🏆" },
+          { id: "referral", name: "Referral",      description: "Earn extra for referrals",         defaultEnabled: false, icon: "👥" },
+        ],
+      },
+    ],
+  },
 };
 
 export function getArchitecture(id: TemplateId): TemplateArchitecture | undefined {

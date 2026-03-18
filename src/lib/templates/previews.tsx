@@ -679,6 +679,273 @@ export function MemePreview({ config }: { config: Config }) {
   );
 }
 
+// ── Pump Token ────────────────────────────────────────────────────────────────
+
+export function PumpTokenPreview({ config }: { config: Config }) {
+  const accent = config.accentColor || "#22c55e";
+  const name   = config.tokenName   || "PumpToken";
+  const sym    = config.symbol      || "PUMP";
+  const price  = config.initialPrice || "0.000001";
+  const emoji  = config.emoji       || "📈";
+  const rgb    = hexToRgb(accent);
+  const t      = getTheme(config, true);
+
+  // Simulated curve data points
+  const pts = [10, 14, 12, 18, 22, 20, 28, 35, 33, 42, 50, 60].map((v, i) => ({
+    x: (i / 11) * 100, y: 100 - v * 1.4,
+  }));
+  const pathD = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+
+  return (
+    <div className="min-h-full flex flex-col font-sans relative overflow-hidden" style={{ background: t.bg }}>
+      {t.isDark && (
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full opacity-15 blur-[80px] pointer-events-none"
+          style={{ background: accent }} />
+      )}
+      <nav className="flex items-center justify-between px-5 py-3 relative z-10"
+        style={{ background: t.navBg, borderBottom: `1px solid ${t.navBorder}` }}>
+        <span className="font-black text-sm" style={{ color: t.text }}>{emoji} ${sym}</span>
+        <button className="text-[11px] font-black px-3 py-1 rounded-lg text-white" style={{ background: accent }}>
+          BUY NOW
+        </button>
+      </nav>
+
+      <div className="px-5 pt-5 pb-2 relative z-10">
+        <div className="flex items-end gap-3 mb-1">
+          <span className="text-3xl font-extrabold" style={{ color: t.text }}>${n(price)}</span>
+          <span className="text-sm font-bold text-emerald-400 mb-1">▲ +12.4%</span>
+        </div>
+        <p className="text-xs mb-4" style={{ color: t.textMuted }}>Current price per {sym}</p>
+
+        {/* Bonding curve chart */}
+        <div className="rounded-2xl p-3 mb-4" style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}` }}>
+          <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: t.textMuted }}>Bonding Curve — Price rises with each buy</p>
+          <svg viewBox="0 0 100 80" className="w-full h-24">
+            <defs>
+              <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={accent} stopOpacity="0.3" />
+                <stop offset="100%" stopColor={accent} stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path d={`${pathD} L 100 80 L 0 80 Z`} fill="url(#curveGrad)" />
+            <path d={pathD} fill="none" stroke={accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r="2.5" fill={accent} />
+          </svg>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-xl p-3 text-center" style={{ background: `rgba(${rgb},0.12)`, border: `1px solid rgba(${rgb},0.25)` }}>
+            <p className="text-[10px]" style={{ color: t.textMuted }}>Buy</p>
+            <button className="text-xs font-black mt-1 w-full py-1.5 rounded-lg text-white" style={{ background: accent }}>📈 Buy</button>
+          </div>
+          <div className="rounded-xl p-3 text-center" style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}` }}>
+            <p className="text-[10px]" style={{ color: t.textMuted }}>Sell</p>
+            <button className="text-xs font-black mt-1 w-full py-1.5 rounded-lg" style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, color: t.textSub }}>📉 Sell</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-5 py-3 relative z-10">
+        <p className="text-[11px] font-bold" style={{ color: t.text }}>{name}</p>
+        <p className="text-[10px]" style={{ color: t.textMuted }}>Bonding curve token · Price increases with supply</p>
+      </div>
+    </div>
+  );
+}
+
+// ── NFT Mint Page ─────────────────────────────────────────────────────────────
+
+export function NFTMintPreview({ config }: { config: Config }) {
+  const accent = config.accentColor   || "#8b5cf6";
+  const name   = config.collectionName || "My NFT Drop";
+  const supply = config.maxSupply     || "1000";
+  const price  = config.mintPrice     || "0.01";
+  const rgb    = hexToRgb(accent);
+  const t      = getTheme(config, true);
+  const minted = Math.floor(Number(supply) * 0.37);
+
+  return (
+    <div className="min-h-full flex flex-col font-sans relative overflow-hidden" style={{ background: t.bg }}>
+      {t.isDark && (
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-64 rounded-full opacity-20 blur-[80px] pointer-events-none"
+          style={{ background: accent }} />
+      )}
+      <nav className="flex items-center justify-between px-5 py-3 relative z-10"
+        style={{ background: t.navBg, borderBottom: `1px solid ${t.navBorder}` }}>
+        <span className="font-black text-sm" style={{ color: t.text }}>🎨 {name}</span>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: `rgba(${rgb},0.2)`, color: accent }}>NFT Drop</span>
+      </nav>
+
+      <div className="px-5 pt-5 relative z-10 text-center">
+        {/* NFT grid preview */}
+        <div className="grid grid-cols-3 gap-1.5 mb-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="aspect-square rounded-xl flex items-center justify-center text-xl"
+              style={{ background: `linear-gradient(135deg, rgba(${rgb},${0.3 + i * 0.08}), rgba(${rgb},0.1))`, border: `1px solid rgba(${rgb},0.3)` }}>
+              {["🎨","🌟","🔮","💎","🌈","🦋"][i]}
+            </div>
+          ))}
+        </div>
+
+        {/* Supply bar */}
+        <div className="mb-4">
+          <div className="flex justify-between text-[10px] mb-1" style={{ color: t.textMuted }}>
+            <span>{n(String(minted))} minted</span><span>{n(supply)} total</span>
+          </div>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: t.cardBorder }}>
+            <div className="h-full rounded-full" style={{ width: `${(minted / Number(supply)) * 100}%`, background: `linear-gradient(90deg, ${accent}, rgba(${rgb},0.6))` }} />
+          </div>
+        </div>
+
+        {/* Mint card */}
+        <div className="rounded-2xl p-4" style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}` }}>
+          <p className="text-sm font-bold mb-1" style={{ color: t.text }}>{price} ETH per NFT</p>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px]" style={{ color: t.textMuted }}>Quantity</span>
+            <div className="flex items-center gap-2" style={{ border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: "2px 8px" }}>
+              <span style={{ color: t.textMuted }}>−</span>
+              <span className="text-sm font-bold" style={{ color: t.text }}>1</span>
+              <span style={{ color: t.textMuted }}>+</span>
+            </div>
+          </div>
+          <button className="w-full py-2.5 rounded-xl text-sm font-black text-white"
+            style={{ background: `linear-gradient(135deg, ${accent}, rgba(${rgb},0.7))` }}>
+            Mint NFT — {price} ETH
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Token-Gated Access ────────────────────────────────────────────────────────
+
+export function TokenGatedPreview({ config }: { config: Config }) {
+  const accent  = config.accentColor  || "#6366f1";
+  const title   = config.contentTitle || "Members Only";
+  const minBal  = config.minBalance   || "1";
+  const desc    = config.description  || "Hold the token to unlock exclusive access.";
+  const rgb     = hexToRgb(accent);
+  const t       = getTheme(config, true);
+
+  return (
+    <div className="min-h-full flex flex-col font-sans relative overflow-hidden" style={{ background: t.bg }}>
+      {t.isDark && (
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-64 rounded-full opacity-15 blur-[80px] pointer-events-none"
+          style={{ background: accent }} />
+      )}
+      <nav className="flex items-center justify-between px-5 py-3 relative z-10"
+        style={{ background: t.navBg, borderBottom: `1px solid ${t.navBorder}` }}>
+        <span className="font-black text-sm" style={{ color: t.text }}>🔐 {title}</span>
+        <button className="text-[11px] font-bold px-3 py-1 rounded-lg" style={{ background: `rgba(${rgb},0.15)`, color: accent, border: `1px solid rgba(${rgb},0.3)` }}>
+          Connect Wallet
+        </button>
+      </nav>
+
+      <div className="flex-1 flex flex-col items-center justify-center px-5 py-8 relative z-10 text-center">
+        {/* Lock icon */}
+        <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-4"
+          style={{ background: `rgba(${rgb},0.12)`, border: `2px solid rgba(${rgb},0.3)` }}>
+          <span className="text-4xl">🔐</span>
+        </div>
+        <h2 className="text-xl font-extrabold mb-2" style={{ color: t.text }}>{title}</h2>
+        <p className="text-sm mb-4 max-w-xs" style={{ color: t.textSub }}>{desc}</p>
+
+        {/* Requirement badge */}
+        <div className="flex items-center gap-2 px-4 py-2 rounded-xl mb-6"
+          style={{ background: `rgba(${rgb},0.12)`, border: `1px solid rgba(${rgb},0.25)` }}>
+          <span className="text-sm">🪙</span>
+          <span className="text-xs font-semibold" style={{ color: accent }}>Requires {minBal}+ token{Number(minBal) !== 1 ? "s" : ""} to unlock</span>
+        </div>
+
+        <button className="w-full max-w-xs py-3 rounded-xl text-sm font-bold text-white mb-3"
+          style={{ background: `linear-gradient(135deg, ${accent}, rgba(${rgb},0.7))` }}>
+          Connect & Verify Wallet
+        </button>
+
+        {/* Locked content blur */}
+        <div className="w-full max-w-xs rounded-2xl p-4 relative overflow-hidden"
+          style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}` }}>
+          <div className="absolute inset-0 backdrop-blur-sm bg-black/40 flex items-center justify-center rounded-2xl z-10">
+            <span className="text-white/60 text-xs font-bold">🔒 Connect to unlock</span>
+          </div>
+          <p className="text-xs blur-sm" style={{ color: t.textSub }}>Exclusive content here discord.gg/members-only-alpha</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Click-to-Earn ─────────────────────────────────────────────────────────────
+
+export function ClickToEarnPreview({ config }: { config: Config }) {
+  const accent  = config.accentColor    || "#06b6d4";
+  const name    = config.gameName       || "TapToEarn";
+  const reward  = config.rewardPerClick || "0.0001";
+  const daily   = config.dailyLimit     || "0.01";
+  const emoji   = config.emoji          || "👆";
+  const rgb     = hexToRgb(accent);
+  const t       = getTheme(config, true);
+
+  return (
+    <div className="min-h-full flex flex-col font-sans relative overflow-hidden" style={{ background: t.bg }}>
+      {t.isDark && (
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full opacity-20 blur-[80px] pointer-events-none"
+          style={{ background: accent }} />
+      )}
+      <nav className="flex items-center justify-between px-5 py-3 relative z-10"
+        style={{ background: t.navBg, borderBottom: `1px solid ${t.navBorder}` }}>
+        <span className="font-black text-sm" style={{ color: t.text }}>{emoji} {name}</span>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: `rgba(${rgb},0.2)`, color: accent }}>
+          Earn {reward} ETH/tap
+        </span>
+      </nav>
+
+      <div className="flex-1 flex flex-col items-center justify-center px-5 py-6 relative z-10 text-center">
+        {/* Stats row */}
+        <div className="grid grid-cols-2 gap-2 w-full max-w-xs mb-6">
+          {[
+            { label: "Your Earnings", value: "0.0023 ETH" },
+            { label: "Daily Limit",   value: daily + " ETH" },
+          ].map(stat => (
+            <div key={stat.label} className="rounded-xl p-3" style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}` }}>
+              <p className="text-[10px]" style={{ color: t.textMuted }}>{stat.label}</p>
+              <p className="text-sm font-bold" style={{ color: t.text }}>{stat.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Big tap button */}
+        <div className="relative mb-6">
+          <div className="absolute inset-0 rounded-full blur-2xl opacity-40" style={{ background: accent }} />
+          <button className="relative w-36 h-36 rounded-full text-6xl flex items-center justify-center transition-all"
+            style={{
+              background: `radial-gradient(circle, rgba(${rgb},0.4), rgba(${rgb},0.15))`,
+              border: `2px solid rgba(${rgb},0.6)`,
+              boxShadow: `0 0 30px rgba(${rgb},0.4)`,
+            }}>
+            {emoji}
+          </button>
+        </div>
+
+        <p className="text-sm font-bold mb-1" style={{ color: t.text }}>Tap to earn {reward} ETH</p>
+        <p className="text-xs mb-4" style={{ color: t.textMuted }}>3s cooldown between taps</p>
+
+        {/* Leaderboard preview */}
+        <div className="w-full max-w-xs rounded-2xl p-3" style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}` }}>
+          <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: t.textMuted }}>🏆 Top Earners Today</p>
+          {[["0x1a2b…", "0.0098 ETH"], ["0x3c4d…", "0.0087 ETH"], ["0x5e6f…", "0.0071 ETH"]].map(([addr, earned], i) => (
+            <div key={i} className="flex items-center justify-between py-1">
+              <span className="text-[10px] font-mono" style={{ color: t.textSub }}>{i + 1}. {addr}</span>
+              <span className="text-[10px] font-bold" style={{ color: accent }}>{earned}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Registry ─────────────────────────────────────────────────────────────────
 
 export const PREVIEW_MAP: Record<TemplateId, React.FC<{ config: Config }>> = {
@@ -687,6 +954,10 @@ export const PREVIEW_MAP: Record<TemplateId, React.FC<{ config: Config }>> = {
   "dao-governance":    DAOPreview,
   "staking-dashboard": StakingPreview,
   "meme-token":        MemePreview,
+  "pump-token":        PumpTokenPreview,
+  "nft-mint":          NFTMintPreview,
+  "token-gated":       TokenGatedPreview,
+  "click-to-earn":     ClickToEarnPreview,
 };
 
 export function TemplatePreview({ templateId, config }: { templateId: TemplateId; config: Config }) {

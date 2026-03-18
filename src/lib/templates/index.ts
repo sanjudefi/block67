@@ -6,7 +6,11 @@ export type TemplateId =
   | "nft-collection"
   | "dao-governance"
   | "staking-dashboard"
-  | "meme-token";
+  | "meme-token"
+  | "pump-token"
+  | "nft-mint"
+  | "token-gated"
+  | "click-to-earn";
 
 export interface TemplateParam {
   key: string;
@@ -22,7 +26,7 @@ export interface TemplateParam {
 export interface BuiltinTemplate {
   id: TemplateId;
   name: string;
-  category: "TOKEN" | "NFT" | "DAO" | "DEFI" | "LANDING_PAGE";
+  category: "TOKEN" | "NFT" | "DAO" | "DEFI" | "LANDING_PAGE" | "OTHER";
   tagline: string;
   description: string;
   icon: string;
@@ -234,6 +238,157 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["Anti-Bot", "Tax Mechanism", "Liquidity Lock", "Renounced Owner", "Viral Landing Page"],
     chain: "Ethereum / BSC / Base",
+  },
+  // ── New viral templates ────────────────────────────────────────────────────
+  {
+    id: "pump-token",
+    name: "Pump Token",
+    category: "TOKEN",
+    tagline: "Bonding curve token that pumps with every buy",
+    description:
+      "Deploy a viral bonding-curve token where price automatically rises with each purchase. Built-in buy/sell UI with live price chart.",
+    icon: "📈",
+    gradient: "from-green-500 to-emerald-600",
+    accentColor: "#22c55e",
+    params: [
+      { key: "tokenName",    label: "Token Name",        type: "text",   required: true,  defaultValue: "PumpToken",   placeholder: "e.g. MoonPump" },
+      { key: "symbol",       label: "Symbol",            type: "text",   required: true,  defaultValue: "PUMP",        placeholder: "e.g. PUMP" },
+      { key: "initialPrice", label: "Initial Price (ETH)", type: "number", required: true, defaultValue: "0.000001",   placeholder: "0.000001" },
+      { key: "description",  label: "Description",       type: "text",   required: false, defaultValue: "Price goes up with every buy. Be early. Pump it.", placeholder: "Describe your token" },
+      { key: "accentColor",  label: "Brand Color",       type: "color",  required: false, defaultValue: "#22c55e" },
+      { key: "emoji",        label: "Token Emoji",       type: "text",   required: false, defaultValue: "📈",           placeholder: "🚀" },
+      { key: "theme",        label: "Theme",             type: "select", required: false, defaultValue: "dark",  options: ["dark", "light"] },
+    ],
+    defaultConfig: {
+      tokenName: "PumpToken",
+      symbol: "PUMP",
+      initialPrice: "0.000001",
+      description: "Price goes up with every buy. Be early. Pump it.",
+      accentColor: "#22c55e",
+      emoji: "📈",
+      theme: "dark",
+    },
+    suggestedPrompts: [
+      "Change name to MoonPump with symbol MOON",
+      "Lower initial price to 0.0000001 ETH for max virality",
+      "Add a description about community-driven price discovery",
+      "Change brand color to green and add rocket emoji",
+    ],
+    features: ["Bonding Curve", "Auto Price Rise", "Buy / Sell UI", "Live Price Feed", "Viral Share Page"],
+    chain: "Ethereum / Base / BSC",
+  },
+  {
+    id: "nft-mint",
+    name: "NFT Mint Page",
+    category: "NFT",
+    tagline: "Simple open-edition NFT with one-click mint",
+    description:
+      "Deploy a clean open-edition NFT mint page. No whitelist complexity — just a big mint button, supply counter, and shareable link.",
+    icon: "🎨",
+    gradient: "from-violet-500 to-purple-600",
+    accentColor: "#8b5cf6",
+    params: [
+      { key: "collectionName", label: "Collection Name",   type: "text",   required: true,  defaultValue: "My NFT Drop", placeholder: "e.g. Pixel Pals" },
+      { key: "symbol",         label: "Symbol",            type: "text",   required: true,  defaultValue: "MNFT",        placeholder: "e.g. PPALS" },
+      { key: "maxSupply",      label: "Max Supply",        type: "number", required: true,  defaultValue: "1000",        placeholder: "1,000" },
+      { key: "mintPrice",      label: "Mint Price (ETH)",  type: "number", required: true,  defaultValue: "0.01",        placeholder: "0.01" },
+      { key: "description",    label: "Description",       type: "text",   required: false, defaultValue: "A limited NFT drop. Mint yours before they're gone.", placeholder: "Describe your drop" },
+      { key: "accentColor",    label: "Brand Color",       type: "color",  required: false, defaultValue: "#8b5cf6" },
+      { key: "theme",          label: "Theme",             type: "select", required: false, defaultValue: "dark",  options: ["dark", "light"] },
+    ],
+    defaultConfig: {
+      collectionName: "My NFT Drop",
+      symbol: "MNFT",
+      maxSupply: "1000",
+      mintPrice: "0.01",
+      description: "A limited NFT drop. Mint yours before they're gone.",
+      accentColor: "#8b5cf6",
+      theme: "dark",
+    },
+    suggestedPrompts: [
+      "Make it a free mint with 5000 supply",
+      "Change name to Pixel Pals with 0.005 ETH mint price",
+      "Set max supply to 10000 and price to 0.08 ETH",
+      "Add a description about generative art characters",
+    ],
+    features: ["ERC-721", "Public Mint", "Supply Counter", "Mint UI", "Shareable Link"],
+    chain: "Ethereum / Base",
+  },
+  {
+    id: "token-gated",
+    name: "Token-Gated Access",
+    category: "LANDING_PAGE",
+    tagline: "Exclusive content unlocked by token ownership",
+    description:
+      "Create a token-gated page that verifies wallet ownership and reveals exclusive content — Discord links, alpha, downloads — to token holders only.",
+    icon: "🔐",
+    gradient: "from-slate-600 to-gray-700",
+    accentColor: "#6366f1",
+    params: [
+      { key: "contentTitle",  label: "Page Title",          type: "text",    required: true,  defaultValue: "Members Only", placeholder: "e.g. Alpha Access" },
+      { key: "tokenAddress",  label: "Token Contract Addr", type: "address", required: true,  defaultValue: "",              placeholder: "0x..." },
+      { key: "minBalance",    label: "Min Token Balance",   type: "number",  required: true,  defaultValue: "1",             placeholder: "1" },
+      { key: "accessUrl",     label: "Unlock URL / Content",type: "text",    required: true,  defaultValue: "",              placeholder: "https://discord.gg/..." },
+      { key: "description",   label: "Teaser Text",         type: "text",    required: false, defaultValue: "Hold the token to unlock exclusive access.", placeholder: "What's behind the gate?" },
+      { key: "accentColor",   label: "Brand Color",         type: "color",   required: false, defaultValue: "#6366f1" },
+      { key: "theme",         label: "Theme",               type: "select",  required: false, defaultValue: "dark", options: ["dark", "light"] },
+    ],
+    defaultConfig: {
+      contentTitle: "Members Only",
+      tokenAddress: "",
+      minBalance: "1",
+      accessUrl: "",
+      description: "Hold the token to unlock exclusive access.",
+      accentColor: "#6366f1",
+      theme: "dark",
+    },
+    suggestedPrompts: [
+      "Change title to 'Alpha Holders Lounge'",
+      "Set minimum balance to 100 tokens",
+      "Add description about exclusive trading signals",
+      "Change accent color to gold for premium feel",
+    ],
+    features: ["Wallet Verify", "Token Balance Check", "Reveal on Unlock", "Any ERC-20 / ERC-721", "Shareable Link"],
+    chain: "Ethereum / Base / Polygon",
+  },
+  {
+    id: "click-to-earn",
+    name: "Click-to-Earn Game",
+    category: "OTHER",
+    tagline: "Tap to earn ETH rewards — viral onchain game",
+    description:
+      "Launch an addictive click-to-earn game where users tap a button to earn ETH rewards. Built-in cooldown, daily limit, and leaderboard.",
+    icon: "🎮",
+    gradient: "from-cyan-500 to-blue-600",
+    accentColor: "#06b6d4",
+    params: [
+      { key: "gameName",       label: "Game Name",           type: "text",   required: true,  defaultValue: "TapToEarn",  placeholder: "e.g. CryptoClicker" },
+      { key: "rewardPerClick", label: "Reward per Click (ETH)", type: "number", required: true, defaultValue: "0.0001",  placeholder: "0.0001" },
+      { key: "dailyLimit",     label: "Daily Limit (ETH)",   type: "number", required: true,  defaultValue: "0.01",       placeholder: "0.01" },
+      { key: "cooldown",       label: "Cooldown (seconds)",  type: "number", required: false, defaultValue: "3",          placeholder: "3" },
+      { key: "description",    label: "Game Description",    type: "text",   required: false, defaultValue: "Tap the button. Earn ETH. Simple as that.", placeholder: "Describe your game" },
+      { key: "accentColor",    label: "Brand Color",         type: "color",  required: false, defaultValue: "#06b6d4" },
+      { key: "emoji",          label: "Tap Emoji",           type: "text",   required: false, defaultValue: "👆",          placeholder: "🎯" },
+      { key: "theme",          label: "Theme",               type: "select", required: false, defaultValue: "dark",  options: ["dark", "light"] },
+    ],
+    defaultConfig: {
+      gameName: "TapToEarn",
+      rewardPerClick: "0.0001",
+      dailyLimit: "0.01",
+      cooldown: "3",
+      description: "Tap the button. Earn ETH. Simple as that.",
+      accentColor: "#06b6d4",
+      emoji: "👆",
+      theme: "dark",
+    },
+    suggestedPrompts: [
+      "Rename to CryptoClicker with higher rewards",
+      "Set cooldown to 10 seconds and daily limit to 0.05 ETH",
+      "Add description about competitive daily leaderboard",
+      "Change theme to a neon gaming aesthetic",
+    ],
+    features: ["Click-to-Earn", "ETH Rewards", "Cooldown Logic", "Daily Limit", "Live Leaderboard"],
+    chain: "Ethereum / Base",
   },
 ];
 

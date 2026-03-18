@@ -125,6 +125,30 @@ const QUICK_FIELDS: Record<string, Array<{ key: string; label: string; type: "te
     { key: "accentColor", label: "Accent Color",   type: "color"    },
     { key: "_bgColor",    label: "Background",     type: "color"    },
   ],
+  "pump-token": [
+    { key: "tokenName",   label: "Token Name",  type: "text"     },
+    { key: "description", label: "Description", type: "textarea" },
+    { key: "accentColor", label: "Brand Color", type: "color"    },
+    { key: "_bgColor",    label: "Background",  type: "color"    },
+  ],
+  "nft-mint": [
+    { key: "collectionName", label: "Collection", type: "text"     },
+    { key: "description",    label: "Description",type: "textarea" },
+    { key: "accentColor",    label: "Brand Color",type: "color"    },
+    { key: "_bgColor",       label: "Background", type: "color"    },
+  ],
+  "token-gated": [
+    { key: "contentTitle", label: "Page Title",   type: "text"     },
+    { key: "description",  label: "Teaser Text",  type: "textarea" },
+    { key: "accentColor",  label: "Brand Color",  type: "color"    },
+    { key: "_bgColor",     label: "Background",   type: "color"    },
+  ],
+  "click-to-earn": [
+    { key: "gameName",    label: "Game Name",   type: "text"     },
+    { key: "description", label: "Description", type: "textarea" },
+    { key: "accentColor", label: "Brand Color", type: "color"    },
+    { key: "_bgColor",    label: "Background",  type: "color"    },
+  ],
 };
 
 // ── AI Responses ──────────────────────────────────────────────────────────────
