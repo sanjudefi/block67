@@ -26,8 +26,10 @@ import {
   Globe, Palette, MessageSquare, Zap, CheckCircle2,
   Monitor, Tablet, Smartphone, Users, MessageCircle,
   HelpCircle, Mail, Share2, Settings, Plus, Trash2,
-  Rocket, Eye, History, RotateCcw, Copy, Check,
+  Rocket, Eye, History, RotateCcw, Copy, Check, Lock,
 } from "lucide-react";
+import { DomainModal }  from "@/components/DomainModal";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -174,11 +176,11 @@ function FieldInput({ value, onChange, placeholder, type = "text", className = "
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export function FrontendClient({
-  projectId, projectSlug, projectName, templateKey, config: initialConfig, isLive, siteUrl,
+  projectId, projectSlug, projectName, templateKey, config: initialConfig, isLive, siteUrl, subdomainUrl, isPro,
 }: {
   projectId: string; projectSlug: string; projectName: string;
   templateKey: string; config: Record<string, string>; isLive: boolean;
-  siteUrl?: string;
+  siteUrl?: string; subdomainUrl?: string; isPro?: boolean;
 }) {
   // ── State ──────────────────────────────────────────────────────────────────
   const [savedConfig,    setSavedConfig]    = useState<Record<string, string>>(initialConfig);
@@ -201,6 +203,8 @@ export function FrontendClient({
   });
   const [urlCopied,      setUrlCopied]      = useState(false);
   const [iframeKey,      setIframeKey]      = useState(0);
+  const [showDomain,     setShowDomain]     = useState(false);
+  const [showUpgrade,    setShowUpgrade]    = useState(false);
   // Preview iframe always loads the DRAFT version (?preview=1)
   // Live site (/site/slug without preview param) reads the published snapshot only.
   const [iframeSrc,      setIframeSrc]      = useState(`/site/${projectSlug}?preview=1&_t=${Date.now()}`);
@@ -395,7 +399,7 @@ export function FrontendClient({
     <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
 
       {/* ══ TOP BAR ══════════════════════════════════════════════════════════ */}
-      <header className="h-12 border-b border-white/10 flex items-center gap-3 px-4 shrink-0"
+      <header className="h-14 border-b border-white/10 flex items-center gap-3 px-4 shrink-0"
         style={{ background: "rgba(10,10,15,0.97)" }}>
         <Link href={`/projects/${projectSlug}`}
           className="flex items-center gap-1.5 text-white/50 hover:text-white/80 transition-colors shrink-0">
@@ -403,8 +407,55 @@ export function FrontendClient({
           <span className="text-xs hidden sm:block">Back</span>
         </Link>
         <Palette className="w-4 h-4 text-violet-400 shrink-0" />
-        <span className="font-semibold text-sm text-white truncate">{projectName}</span>
-        <span className="text-white/30 text-xs hidden md:block shrink-0">· Frontend Editor</span>
+        <span className="font-semibold text-sm text-white truncate max-w-[120px]">{projectName}</span>
+
+        {/* ── Subdomain URL pill — always visible ─────────────────────────── */}
+        <div className="flex items-center gap-2 shrink-0 ml-1">
+          {live ? (
+            /* Published / live state */
+            <div className="flex items-center gap-1.5 border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 rounded-xl">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wide">Live</span>
+              <a href={liveUrl} target="_blank" rel="noopener noreferrer"
+                className="text-xs text-emerald-300/80 hover:text-emerald-300 font-mono truncate max-w-[180px] hidden md:block">
+                {subdomainUrl ?? liveUrl.replace("https://", "")}
+              </a>
+              <button
+                onClick={() => { navigator.clipboard.writeText(liveUrl); setUrlCopied(true); setTimeout(() => setUrlCopied(false), 2000); }}
+                title="Copy URL" className="text-emerald-400 hover:text-emerald-300 shrink-0">
+                {urlCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+              </button>
+              <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 shrink-0">
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          ) : (
+            /* Not yet published */
+            <div className="flex items-center gap-1.5 border border-white/10 bg-white/5 px-2.5 py-1.5 rounded-xl">
+              <Globe className="w-3 h-3 text-white/30 shrink-0" />
+              <span className="text-xs text-white/40 font-mono truncate max-w-[180px] hidden md:block">
+                {subdomainUrl ?? `${projectSlug}.block67.app`}
+              </span>
+              <span className="text-[10px] text-white/30 shrink-0">· Not published</span>
+            </div>
+          )}
+
+          {/* Add my domain button */}
+          <button
+            onClick={() => isPro ? setShowDomain(true) : setShowUpgrade(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-colors shrink-0"
+            style={{
+              background: isPro ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.05)",
+              border: isPro ? "1px solid rgba(139,92,246,0.35)" : "1px solid rgba(255,255,255,0.10)",
+              color: isPro ? "#c4b5fd" : "rgba(255,255,255,0.35)",
+            }}
+            title={isPro ? "Connect your custom domain" : "Upgrade to Premium for custom domains"}>
+            <Globe className="w-3 h-3" />
+            <span className="hidden sm:block">Add my domain</span>
+            {!isPro && <Lock className="w-2.5 h-2.5 opacity-60" />}
+          </button>
+        </div>
+
         <div className="ml-auto flex items-center gap-1">
           {(["desktop","tablet","mobile"] as ViewMode[]).map(m => (
             <button key={m} onClick={() => setViewMode(m)}
@@ -413,28 +464,6 @@ export function FrontendClient({
             </button>
           ))}
         </div>
-        {live && (
-          <div className="flex items-center gap-2 shrink-0 ml-2">
-            {/* Big LIVE badge with full URL + copy */}
-            <div className="flex items-center gap-2 border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 rounded-xl">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-              <span className="text-xs font-bold text-emerald-400">LIVE</span>
-              <a href={liveUrl} target="_blank" rel="noopener noreferrer"
-                className="text-xs text-emerald-300/80 hover:text-emerald-300 font-mono truncate max-w-[160px] hidden md:block">
-                {liveUrl.replace("https://", "")}
-              </a>
-              <button
-                onClick={() => { navigator.clipboard.writeText(liveUrl); setUrlCopied(true); setTimeout(() => setUrlCopied(false), 2000); }}
-                title="Copy live URL"
-                className="text-emerald-400 hover:text-emerald-300 shrink-0">
-                {urlCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
-              <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 shrink-0">
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </div>
-        )}
       </header>
 
       {/* ══ QUICK-EDIT STRIP ═════════════════════════════════════════════════ */}
@@ -666,8 +695,11 @@ export function FrontendClient({
           {/* Status bar */}
           <div className="flex items-center gap-2 shrink-0">
             <div className="flex-1 flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 min-w-0">
-              <Globe className="w-3 h-3 text-white/30 shrink-0" />
-              <span className="text-xs text-white/40 font-mono truncate">preview — draft mode</span>
+              <Eye className="w-3 h-3 text-white/30 shrink-0" />
+              <span className="text-xs text-white/40 font-mono truncate">
+                Preview — publishes to{" "}
+                <span className="text-violet-400/70">{subdomainUrl ?? `${projectSlug}.block67.app`}</span>
+              </span>
             </div>
             {saveStatus === "saved" && (
               <span className="flex items-center gap-1 text-xs text-emerald-400 font-semibold shrink-0">
@@ -817,6 +849,26 @@ export function FrontendClient({
         </button>
       </div>
 
+      {/* ── Domain modal (Pro) ─────────────────────────────────────────────── */}
+      {showDomain && (
+        <DomainModal
+          projectId={projectId}
+          projectName={projectName}
+          projectSlug={projectSlug}
+          onClose={() => setShowDomain(false)}
+          onUpgrade={() => { setShowDomain(false); setShowUpgrade(true); }}
+        />
+      )}
+
+      {/* ── Upgrade modal (Free → Premium) ────────────────────────────────── */}
+      {showUpgrade && (
+        <UpgradeModal
+          onClose={() => setShowUpgrade(false)}
+          onUpgraded={() => { setShowUpgrade(false); setShowDomain(true); }}
+          projectCount={0}
+          freeLimit={3}
+        />
+      )}
     </div>
   );
 }

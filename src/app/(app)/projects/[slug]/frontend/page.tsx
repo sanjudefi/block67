@@ -39,13 +39,20 @@ export default async function FrontendPage({ params }: { params: { slug: string 
   const cfg = (project.paramValues ?? {}) as Record<string, string>;
 
   // Compute the correct public site URL for this environment.
-  // On block67.app production, we use the pretty subdomain.
-  // On Vercel previews / localhost, we use /site/[slug] on the same host.
   const host = headers().get("host") ?? "";
   const isProduction = host === "block67.app" || host === "www.block67.app";
   const siteUrl = isProduction
     ? `https://${project.slug}.block67.app`
     : `https://${host}/site/${project.slug}`;
+
+  // Always show the canonical subdomain for branding purposes
+  const subdomainUrl = `${project.slug}.block67.app`;
+
+  // Check if user is on premium plan
+  const upgradeRecord = await prisma.authNonce.findUnique({
+    where: { address: `upgrade:${token.sub}` },
+  });
+  const isPro = !!(upgradeRecord && new Date(upgradeRecord.expiresAt) > new Date());
 
   return (
     <FrontendClient
@@ -56,6 +63,8 @@ export default async function FrontendPage({ params }: { params: { slug: string 
       config={cfg}
       isLive={project.status === "ACTIVE"}
       siteUrl={siteUrl}
+      subdomainUrl={subdomainUrl}
+      isPro={isPro}
     />
   );
 }
