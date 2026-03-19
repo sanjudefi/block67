@@ -45,10 +45,16 @@ function assembleERC20(spec: AssemblySpec): AssembledContract {
   const supply  = c.totalSupply   || "1000000";
   const ver     = spec.version    || "0.8.20";
 
-  const mintable = spec.modules.includes("mintable") || c.mintable === "true";
-  const burnable = spec.modules.includes("burnable") || c.burnable === "true";
-  const taxable  = spec.modules.includes("taxable");
-  const votes    = spec.modules.includes("governance");
+  const mintable   = spec.modules.includes("mintable")   || c.mintable === "true";
+  const burnable   = spec.modules.includes("burnable")   || c.burnable === "true";
+  const taxable    = spec.modules.includes("taxable");
+  const votes      = spec.modules.includes("governance");
+  const pausable   = spec.modules.includes("pausable");
+  const hasBlacklist = spec.modules.includes("blacklist");
+  const antiwhale  = spec.modules.includes("antiwhale");
+
+  // Unified exclusion mapping — used by both tax and antiwhale
+  const hasExcluded = taxable || antiwhale;
 
   const imports: string[] = [];
   const inherits: string[] = ["ERC20", "Ownable"];
@@ -60,43 +66,95 @@ function assembleERC20(spec: AssemblySpec): AssembledContract {
     inherits.push("ERC20Burnable");
     imports.push("block67/tokens/ERC20BurnableToken.sol");
   }
+  if (pausable) {
+    importBlock += `\nimport "@openzeppelin/contracts/utils/Pausable.sol";`;
+    inherits.push("Pausable");
+  }
   if (votes) {
     importBlock += `\nimport "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";\nimport "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";`;
     inherits.push("ERC20Permit", "ERC20Votes");
     imports.push("block67/tokens/ERC20VotesToken.sol");
   }
 
-  const mintFn = mintable ? `
-    function mint(address to, uint256 amount) external onlyOwner {
-        _mint(to, amount);
-    }` : "";
+  // ── Storage variables ──────────────────────────────────────────────────────
+  let storageBlock = "";
 
-  const taxBody = taxable ? `
+  if (taxable) {
+    storageBlock += `
     uint256 public taxBps = ${Number(c.taxPct || 2) * 100};
-    address public treasury;
-    mapping(address => bool) public isExcluded;
+    address public treasury;`;
+  }
+  if (hasExcluded) {
+    storageBlock += `
+    mapping(address => bool) public isExcluded;`;
+  }
+  if (hasBlacklist) {
+    storageBlock += `
+    mapping(address => bool) public blacklisted;`;
+  }
+  if (antiwhale) {
+    storageBlock += `
+    uint256 public maxTxAmount = ${supply} * 10 ** 18 * 2 / 100; // 2% of initial supply`;
+  }
 
-    function _update(address from, address to, uint256 amount) internal override${votes ? "(ERC20, ERC20Votes)" : ""} {
-        if (!isExcluded[from] && !isExcluded[to] && taxBps > 0) {
-            uint256 tax = (amount * taxBps) / 10_000;
-            super._update(from, treasury, tax);
-            super._update(from, to, amount - tax);
-        } else {
-            super._update(from, to, amount);
-        }
+  // ── _update override ───────────────────────────────────────────────────────
+  const needsUpdate = pausable || hasBlacklist || antiwhale || taxable || votes;
+  const overrideList = votes ? "override(ERC20, ERC20Votes)" : "override";
+
+  let updateBody = "";
+  if (pausable)     updateBody += `\n        require(!paused(), "Token: transfers paused");`;
+  if (hasBlacklist) updateBody += `\n        require(!blacklisted[from] && !blacklisted[to], "Address is blacklisted");`;
+  if (antiwhale)    updateBody += `\n        if (from != address(0) && to != address(0)) {\n            require(isExcluded[from] || amount <= maxTxAmount, "Exceeds max tx amount");\n        }`;
+  if (taxable) {
+    updateBody += `\n        if (!isExcluded[from] && !isExcluded[to] && taxBps > 0 && from != address(0)) {\n            uint256 tax = (amount * taxBps) / 10_000;\n            super._update(from, treasury, tax);\n            super._update(from, to, amount - tax);\n        } else {\n            super._update(from, to, amount);\n        }`;
+  } else {
+    updateBody += `\n        super._update(from, to, amount);`;
+  }
+
+  const updateFn = needsUpdate ? `
+    function _update(address from, address to, uint256 amount) internal ${overrideList} {${updateBody}
     }` : "";
 
-  const votesOverrides = votes && !taxable ? `
-    function _update(address from, address to, uint256 amount)
-        internal override(ERC20, ERC20Votes)
-    { super._update(from, to, amount); }
-
+  const noncesOverride = votes ? `
     function nonces(address owner_)
         public view override(ERC20Permit, Nonces) returns (uint256)
     { return super.nonces(owner_); }` : "";
 
+  // ── Owner functions ────────────────────────────────────────────────────────
+  let ownerFns = "";
+
+  if (mintable) ownerFns += `
+    function mint(address to, uint256 amount) external onlyOwner {
+        _mint(to, amount);
+    }`;
+
+  if (pausable) ownerFns += `
+    function pause()   external onlyOwner { _pause(); }
+    function unpause() external onlyOwner { _unpause(); }`;
+
+  if (hasBlacklist) ownerFns += `
+    function setBlacklist(address addr, bool blocked) external onlyOwner {
+        blacklisted[addr] = blocked;
+    }`;
+
+  if (antiwhale) ownerFns += `
+    function setMaxTxAmount(uint256 amount) external onlyOwner {
+        require(amount >= INITIAL_SUPPLY / 100, "Min 1% of supply");
+        maxTxAmount = amount;
+    }`;
+
+  if (taxable) ownerFns += `
+    function setTax(uint256 bps)      external onlyOwner { require(bps <= 2500, "Max 25%"); taxBps = bps; }
+    function setTreasury(address t)   external onlyOwner { require(t != address(0), "Zero addr"); treasury = t; }
+    function setExcluded(address a, bool v) external onlyOwner { isExcluded[a] = v; }`;
+
+  // ── Constructor extras ─────────────────────────────────────────────────────
   const constructorExtra = votes ? `\n        ERC20Permit("${name}")` : "";
-  const treasuryInit = taxable ? `\n        treasury = initialOwner;` : "";
+  const constructorBody  = [
+    taxable   ? "        treasury = initialOwner;" : "",
+    hasExcluded ? "        isExcluded[initialOwner] = true;" : "",
+    "        _mint(initialOwner, INITIAL_SUPPLY);",
+  ].filter(Boolean).join("\n");
 
   const source = `// SPDX-License-Identifier: MIT
 pragma solidity ^${ver};
@@ -108,14 +166,14 @@ ${importBlock}
 /// @dev AI-assembled from Block67 Component Library
 contract ${name} is ${inherits.join(", ")} {
     uint256 public constant INITIAL_SUPPLY = ${supply} * 10 ** 18;
-
+${storageBlock}
     constructor(address initialOwner)
         ERC20("${c.tokenName || "MyToken"}", "${sym}")${constructorExtra}
         Ownable(initialOwner)
-    {${treasuryInit}
-        _mint(initialOwner, INITIAL_SUPPLY);
+    {
+${constructorBody}
     }
-${mintFn}${taxBody}${votesOverrides}
+${ownerFns}${updateFn}${noncesOverride}
 }
 `;
 

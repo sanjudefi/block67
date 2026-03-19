@@ -56,6 +56,9 @@ export const AI_MODULE_MAP = {
     taxable:     ["block67/tokens/ERC20Taxable.sol"],
     vesting:     ["block67/tokens/ERC20Vesting.sol"],
     permit:      ["block67/tokens/ERC20PermitToken.sol"],
+    pausable:    ["block67/security/PausableToken.sol"],
+    blacklist:   ["block67/security/BlacklistManager.sol"],
+    antiwhale:   ["block67/security/AntiWhale.sol"],
   },
   "nft-collection": {
     standard:    ["block67/nft/ERC721Base.sol"],

@@ -58,6 +58,19 @@ const ERC20_ABI = [
   "function owner() view returns (address)",
   "function mint(address to, uint256 amount)",
   "function taxBps() view returns (uint256)",
+  // Pausable
+  "function paused() view returns (bool)",
+  "function pause()",
+  "function unpause()",
+  // Blacklist
+  "function blacklisted(address) view returns (bool)",
+  "function setBlacklist(address addr, bool blocked)",
+  // Anti-whale
+  "function maxTxAmount() view returns (uint256)",
+  "function setMaxTxAmount(uint256 amount)",
+  // Excluded
+  "function isExcluded(address) view returns (bool)",
+  "function setExcluded(address a, bool v)",
 ];
 
 const ERC721_ABI = [
@@ -580,17 +593,22 @@ function ERC20DApp({ d, config, projectSlug, templateKey }: { d: DeploymentInfo;
   const abi    = (d.contractAbi as string[] | null) ?? ERC20_ABI;
   const { wallet, error: wErr, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
 
-  const [loading, setLoading] = useState(true);
-  const [info,    setInfo]    = useState({ name: config.tokenName || "Token", symbol: config.symbol || "TKN", supply: "0", decimals: 18, owner: "" });
-  const [balance, setBalance] = useState("");
-  const [taxBps,  setTaxBps]  = useState<number | null>(null);
-  const [toast,   setToast]   = useState({ msg: "", ok: true });
-  const [tx,      setTx]      = useState("");
-  const [toAddr,  setToAddr]  = useState("");
-  const [amount,  setAmount]  = useState("");
-  const [mintTo,  setMintTo]  = useState("");
-  const [mintAmt, setMintAmt] = useState("");
-  const [busy,    setBusy]    = useState(false);
+  const [loading,   setLoading]   = useState(true);
+  const [info,      setInfo]      = useState({ name: config.tokenName || "Token", symbol: config.symbol || "TKN", supply: "0", decimals: 18, owner: "" });
+  const [balance,   setBalance]   = useState("");
+  const [taxBps,    setTaxBps]    = useState<number | null>(null);
+  const [isPaused,  setIsPaused]  = useState<boolean | null>(null);
+  const [maxTx,     setMaxTx]     = useState<string | null>(null);
+  const [toast,     setToast]     = useState({ msg: "", ok: true });
+  const [tx,        setTx]        = useState("");
+  const [toAddr,    setToAddr]    = useState("");
+  const [amount,    setAmount]    = useState("");
+  const [mintTo,    setMintTo]    = useState("");
+  const [mintAmt,   setMintAmt]   = useState("");
+  const [blAddr,    setBlAddr]    = useState("");
+  const [blBlocked, setBlBlocked] = useState(true);
+  const [busy,      setBusy]      = useState(false);
+  const [copied,    setCopied]    = useState(false);
 
   const showToast = (msg: string, ok: boolean) => { setToast({ msg, ok }); setTimeout(() => setToast({ msg: "", ok: true }), 5000); };
 
@@ -606,12 +624,16 @@ function ERC20DApp({ d, config, projectSlug, templateKey }: { d: DeploymentInfo;
         contract.totalSupply().catch(() => 0n),
         contract.owner().catch(() => ""),
       ]);
-      const tax = isMeme ? await contract.taxBps().catch(() => null) : null;
+      const tax    = await contract.taxBps().catch(() => null);
+      const paused = await contract.paused().catch(() => null);
+      const maxTxRaw = await contract.maxTxAmount().catch(() => null);
       setInfo({ name, symbol, supply: fmtUnits(supply, Number(decimals), 2), decimals: Number(decimals), owner });
-      if (tax !== null) setTaxBps(Number(tax));
+      if (tax    !== null) setTaxBps(Number(tax));
+      if (paused !== null) setIsPaused(Boolean(paused));
+      if (maxTxRaw !== null) setMaxTx(fmtUnits(maxTxRaw, Number(decimals), 0));
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [d, abi, config, isMeme, wallet.connected]);
+  }, [d, abi, config, wallet.connected]);
 
   const loadBalance = useCallback(async () => {
     if (!wallet.connected) return;
@@ -644,7 +666,12 @@ function ERC20DApp({ d, config, projectSlug, templateKey }: { d: DeploymentInfo;
       setToAddr(""); setAmount("");
       loadBalance();
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message.slice(0, 100) : "Transfer failed", false);
+      const msg = e instanceof Error ? e.message : "Transfer failed";
+      if (msg.includes("blacklisted")) showToast("Address is blacklisted — transfer blocked by contract.", false);
+      else if (msg.includes("paused"))  showToast("Token transfers are paused. Try again later.", false);
+      else if (msg.includes("max tx") || msg.includes("Exceeds max")) showToast(`Exceeds max tx limit (${maxTx} ${info.symbol}).`, false);
+      else if (msg.includes("gas"))     showToast("Not enough gas. Make sure you have enough ETH for fees.", false);
+      else showToast(msg.slice(0, 120), false);
     } finally { setBusy(false); }
   };
 
@@ -662,12 +689,59 @@ function ERC20DApp({ d, config, projectSlug, templateKey }: { d: DeploymentInfo;
       setMintTo(""); setMintAmt("");
       loadInfo(); loadBalance();
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message.slice(0, 100) : "Mint failed", false);
+      showToast(e instanceof Error ? e.message.slice(0, 120) : "Mint failed", false);
     } finally { setBusy(false); }
   };
 
-  const isOwner = wallet.connected && info.owner && wallet.address.toLowerCase() === info.owner.toLowerCase();
+  const togglePause = async () => {
+    setBusy(true);
+    try {
+      const { ethers } = await import("ethers");
+      const provider   = new ethers.BrowserProvider(window.ethereum);
+      const signer     = await provider.getSigner();
+      const contract   = new ethers.Contract(d.contractAddress, abi, signer);
+      const receipt    = await (await (isPaused ? contract.unpause() : contract.pause())).wait();
+      setTx(receipt?.hash ?? "");
+      showToast(isPaused ? "Token unpaused — transfers re-enabled." : "Token paused — all transfers blocked.", true);
+      setIsPaused(!isPaused);
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message.slice(0, 120) : "Failed", false);
+    } finally { setBusy(false); }
+  };
+
+  const setBlacklist = async () => {
+    if (!blAddr) return;
+    setBusy(true);
+    try {
+      const { ethers } = await import("ethers");
+      const provider   = new ethers.BrowserProvider(window.ethereum);
+      const signer     = await provider.getSigner();
+      const contract   = new ethers.Contract(d.contractAddress, abi, signer);
+      const receipt    = await (await contract.setBlacklist(blAddr, blBlocked)).wait();
+      setTx(receipt?.hash ?? "");
+      showToast(`Address ${blBlocked ? "blacklisted" : "removed from blacklist"}.`, true);
+      setBlAddr("");
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message.slice(0, 120) : "Failed", false);
+    } finally { setBusy(false); }
+  };
+
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const tweetLink = () => {
+    const text = encodeURIComponent(`Just launched ${info.name} ($${info.symbol}) on ${d.chainName}! Built with @block67app 🚀`);
+    const url  = encodeURIComponent(window.location.href);
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, "_blank");
+  };
+
+  const isOwner    = wallet.connected && info.owner && wallet.address.toLowerCase() === info.owner.toLowerCase();
   const isMintable = config.mintable === "true" || isMeme;
+  const hasPause   = isPaused !== null;
+  const showBlacklist = true; // always show to owner — tx fails gracefully if contract doesn't support it
 
   const accent = getAccent(config);
   const bg     = getBg(config);
@@ -687,25 +761,62 @@ function ERC20DApp({ d, config, projectSlug, templateKey }: { d: DeploymentInfo;
         {wErr && <Toast msg={wErr} ok={false} />}
         <Toast msg={toast.msg} ok={toast.ok} />
 
-        {/* Stats */}
+        {/* ── Token Live Banner ── */}
+        {!loading && (
+          <div className="rounded-2xl p-4 border" style={{ background: `rgba(${rgb},0.08)`, borderColor: `rgba(${rgb},0.3)` }}>
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Token is Live</span>
+                  {isPaused && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-900/60 text-amber-400 border border-amber-700/40">Paused</span>}
+                </div>
+                <p className="text-white font-bold text-lg">{info.name} <span className="text-white/50 font-normal text-base">${info.symbol}</span></p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="text-xs text-white/50 font-mono">{shortenAddress(d.contractAddress)}</span>
+                  <CopyBtn text={d.contractAddress} />
+                  <a href={`${d.explorerUrl}/address/${d.contractAddress}`} target="_blank" rel="noopener noreferrer"
+                    className="text-white/30 hover:text-white/70 flex items-center gap-1 text-xs">
+                    <ExternalLink className="w-3 h-3" /> Explorer
+                  </a>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={copyLink}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white/70 hover:text-white rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 transition-all">
+                  {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? "Copied!" : "Share"}
+                </button>
+                <button onClick={tweetLink}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white/70 hover:text-white rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 transition-all">
+                  <Twitter className="w-3.5 h-3.5" /> Tweet
+                </button>
+              </div>
+            </div>
+            {/* Trust indicators */}
+            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/10 flex-wrap">
+              <span className="text-[11px] text-white/30 flex items-center gap-1">🛡 Powered by OpenZeppelin</span>
+              <span className="text-[11px] text-white/30">· {d.chainName}</span>
+              {taxBps !== null && <span className="text-[11px] text-white/30">· {taxBps / 100}% tax</span>}
+              {maxTx  !== null && <span className="text-[11px] text-white/30">· Max tx: {maxTx} {info.symbol}</span>}
+            </div>
+          </div>
+        )}
+
+        {/* ── Stats ── */}
         <div className="grid grid-cols-2 gap-3">
           <GlassCard accent={accent}>
             <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Total Supply</p>
             <p className="font-bold text-white">{info.supply} <span className="text-white/40 font-normal text-xs">{info.symbol}</span></p>
           </GlassCard>
           <GlassCard accent={accent}>
-            <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Contract</p>
-            <div className="flex items-center gap-1">
-              <span className="text-xs font-mono text-white/60 truncate">{shortenAddress(d.contractAddress)}</span>
-              <CopyBtn text={d.contractAddress} />
-              <a href={`${d.explorerUrl}/address/${d.contractAddress}`} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="w-3 h-3 text-white/30 hover:text-white/70" />
-              </a>
-            </div>
+            <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1">Network</p>
+            <p className="font-semibold text-white text-sm">{d.chainName}</p>
+            <p className="text-[11px] text-white/40 mt-0.5 font-mono">{shortenAddress(d.contractAddress)}</p>
           </GlassCard>
         </div>
 
-        {/* Balance */}
+        {/* ── Balance ── */}
         {wallet.connected && (
           <GlassCard accent={accent}>
             <div className="flex items-center justify-between mb-1">
@@ -724,25 +835,29 @@ function ERC20DApp({ d, config, projectSlug, templateKey }: { d: DeploymentInfo;
           </GlassCard>
         )}
 
-        {/* Transfer */}
+        {/* ── Transfer ── */}
         {wallet.connected && !onWrongChain && (
           <GlassCard accent={accent} className="space-y-3">
             <h3 className="font-semibold text-white text-sm flex items-center gap-1.5"><Send className="w-4 h-4" style={{ color: accent }} /> Transfer</h3>
+            {isPaused && <p className="text-xs text-amber-400 bg-amber-900/30 rounded-lg px-3 py-2">⚠ Transfers are currently paused by the contract owner.</p>}
             <input value={toAddr} onChange={(e) => setToAddr(e.target.value)} placeholder="Recipient address (0x…)"
               className="w-full text-sm rounded-xl px-3 py-2.5 outline-none font-mono bg-white/5 border border-white/15 text-white placeholder-white/30 focus:border-white/30" />
             <div className="flex gap-2">
               <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={`Amount (${info.symbol})`}
                 className="flex-1 text-sm rounded-xl px-3 py-2.5 outline-none bg-white/5 border border-white/15 text-white placeholder-white/30 focus:border-white/30" />
-              <button onClick={transfer} disabled={busy || !toAddr || !amount}
+              <button onClick={transfer} disabled={busy || !toAddr || !amount || !!isPaused}
                 className="px-4 py-2.5 text-white text-sm font-semibold rounded-xl transition-all hover:opacity-90 disabled:opacity-30 flex items-center gap-1.5"
                 style={{ background: accent }}>
                 {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Send
               </button>
             </div>
+            {maxTx !== null && (
+              <p className="text-[11px] text-white/30">Max per transaction: {maxTx} {info.symbol}</p>
+            )}
           </GlassCard>
         )}
 
-        {/* Mint (owner only) */}
+        {/* ── Mint (owner only) ── */}
         {wallet.connected && !onWrongChain && isOwner && isMintable && (
           <GlassCard accent={accent} className="space-y-3">
             <h3 className="font-semibold text-white text-sm flex items-center gap-1.5">
@@ -759,6 +874,80 @@ function ERC20DApp({ d, config, projectSlug, templateKey }: { d: DeploymentInfo;
                 style={{ background: `rgba(${rgb},0.3)`, border: `1px solid rgba(${rgb},0.5)` }}>
                 {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />} Mint
               </button>
+            </div>
+          </GlassCard>
+        )}
+
+        {/* ── Owner Admin Panel ── */}
+        {wallet.connected && !onWrongChain && isOwner && (hasPause || showBlacklist) && !loading && (
+          <GlassCard accent={accent} className="space-y-4">
+            <h3 className="font-semibold text-white text-sm flex items-center gap-1.5">
+              🔐 Owner Controls
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full border border-white/20 bg-white/10 text-white/60">Admin only</span>
+            </h3>
+
+            {/* Pause / Unpause */}
+            {hasPause && (
+              <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+                <div>
+                  <p className="text-sm text-white font-medium">{isPaused ? "Token is Paused" : "Token is Active"}</p>
+                  <p className="text-xs text-white/40 mt-0.5">{isPaused ? "All transfers are blocked" : "Transfers are enabled"}</p>
+                </div>
+                <button onClick={togglePause} disabled={busy}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-xl transition-all disabled:opacity-30 ${isPaused ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-amber-600 hover:bg-amber-700 text-white"}`}>
+                  {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isPaused ? "Unpause" : "Pause"}
+                </button>
+              </div>
+            )}
+
+            {/* Blacklist management */}
+            {showBlacklist && (
+              <div className="space-y-2">
+                <p className="text-xs text-white/40 uppercase tracking-wider font-semibold">Blacklist Management</p>
+                <input value={blAddr} onChange={(e) => setBlAddr(e.target.value)} placeholder="Address to block/unblock (0x…)"
+                  className="w-full text-sm rounded-xl px-3 py-2.5 outline-none font-mono bg-white/5 border border-white/15 text-white placeholder-white/30 focus:border-white/30" />
+                <div className="flex gap-2">
+                  <select value={blBlocked ? "block" : "unblock"} onChange={(e) => setBlBlocked(e.target.value === "block")}
+                    className="flex-1 text-sm rounded-xl px-3 py-2.5 outline-none bg-white/5 border border-white/15 text-white focus:border-white/30">
+                    <option value="block">Block address</option>
+                    <option value="unblock">Unblock address</option>
+                  </select>
+                  <button onClick={setBlacklist} disabled={busy || !blAddr}
+                    className="px-4 py-2.5 text-white text-xs font-semibold rounded-xl transition-all hover:opacity-90 disabled:opacity-30 bg-red-700 hover:bg-red-600">
+                    {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Apply"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </GlassCard>
+        )}
+
+        {/* ── Next Steps (for owner) ── */}
+        {isOwner && !loading && (
+          <GlassCard accent={accent}>
+            <p className="text-xs text-white/40 uppercase tracking-wider font-semibold mb-3">Next Steps</p>
+            <div className="space-y-2">
+              {[
+                { icon: "🔍", label: "Verify on block explorer", href: `${d.explorerUrl}/address/${d.contractAddress}#code`, desc: "Make your source code public & trustworthy" },
+                { icon: "🦊", label: "Add to MetaMask", href: null, desc: `Token address: ${shortenAddress(d.contractAddress)}` },
+                { icon: "📤", label: "Share your token page", href: null, desc: "Share this page URL with your community" },
+                { icon: "💧", label: "Add liquidity on DEX", href: "https://app.uniswap.org", desc: "List on Uniswap, SushiSwap, or PancakeSwap" },
+              ].map((step) => (
+                <div key={step.label} className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors">
+                  <span className="text-base mt-0.5">{step.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm text-white font-medium">{step.label}</span>
+                      {step.href && (
+                        <a href={step.href} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="w-3 h-3 text-white/30 hover:text-white/60" />
+                        </a>
+                      )}
+                    </div>
+                    <p className="text-xs text-white/40 mt-0.5">{step.desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </GlassCard>
         )}
