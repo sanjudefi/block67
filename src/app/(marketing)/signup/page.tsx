@@ -71,7 +71,8 @@ function SignupForm() {
     setLoading(false);
     if (result?.error) { router.push("/login"); return; }
 
-    router.push(initialPrompt ? `/dashboard?prompt=${encodeURIComponent(initialPrompt)}` : "/dashboard");
+    const dest = initialPrompt ? `/projects/new?prompt=${encodeURIComponent(initialPrompt)}` : "/dashboard";
+    router.push(dest);
   };
 
   const handleWalletSignup = async () => {
@@ -89,8 +90,9 @@ function SignupForm() {
       const signature = await signer.signMessage(data.nonce);
 
       const result = await signIn("credentials", { type: "wallet", address, signature, nonce: data.nonce, redirect: false });
+      const dest = initialPrompt ? `/projects/new?prompt=${encodeURIComponent(initialPrompt)}` : "/dashboard";
       if (result?.error) setError("Wallet sign-up failed. Please try again.");
-      else router.push(initialPrompt ? `/dashboard?prompt=${encodeURIComponent(initialPrompt)}` : "/dashboard");
+      else router.push(dest);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("rejected") || msg.includes("denied")) setError("Signature rejected by wallet.");

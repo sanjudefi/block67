@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { ArrowUp, Shield, Code2, Zap, Download, Globe, Lock, ChevronRight } from "lucide-react";
+import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
 
 // ── Rotating placeholder prompts ──────────────────────────────────────────────
 const ROTATING_PROMPTS = [
@@ -14,18 +16,6 @@ const ROTATING_PROMPTS = [
   "Create a play-to-earn gaming token with burn mechanics…",
   "Deploy a DeFi yield farm with auto-compound rewards…",
   "Build a multi-sig treasury with 3-of-5 signers…",
-];
-
-// ── Blockchain use-case chips ─────────────────────────────────────────────────
-const USE_CASES = [
-  { label: "ERC-20 Token",       prompt: "Launch an ERC-20 token with custom name, symbol and 1 billion supply" },
-  { label: "Meme Coin",          prompt: "Launch a meme coin with 1 billion supply, 2% buy/sell tax and staking" },
-  { label: "NFT Collection",     prompt: "Create an ERC-721 NFT collection with 10,000 supply, whitelist minting and royalties" },
-  { label: "DAO Governance",     prompt: "Build a DAO with on-chain voting, proposals, timelock and multi-sig treasury" },
-  { label: "Staking Platform",   prompt: "Build a DeFi staking platform with 18% APY, reward distribution and lock periods" },
-  { label: "Multi-sig Wallet",   prompt: "Deploy a multi-sig treasury with 3-of-5 signers and spending limits" },
-  { label: "Tokenized Fund",     prompt: "Create a tokenized investment fund with ERC-20 shares and on-chain accounting" },
-  { label: "Gaming Token",       prompt: "Create a play-to-earn gaming token with NFT items and burn mechanics" },
 ];
 
 // ── Feature cards ─────────────────────────────────────────────────────────────
@@ -86,10 +76,12 @@ const ACCENT: Record<string, string> = {
 
 export default function HomePage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [prompt, setPrompt]                 = useState("");
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [visible, setVisible]               = useState(true);
+  const [activeTemplate, setActiveTemplate] = useState<string | null>(null);
 
   // Rotate placeholder text
   useEffect(() => {
@@ -111,10 +103,18 @@ export default function HomePage() {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [prompt]);
 
-  const handleSubmit = (p?: string) => {
+  const handleSubmit = (p?: string, templateId?: string) => {
     const text = (p ?? prompt).trim();
     if (!text) return;
-    router.push(`/signup?prompt=${encodeURIComponent(text)}`);
+    if (session) {
+      // Logged in → go straight to project creation
+      const q = new URLSearchParams({ prompt: text });
+      if (templateId) q.set("template", templateId);
+      router.push(`/projects/new?${q.toString()}`);
+    } else {
+      // Not logged in → signup page carries the prompt through
+      router.push(`/signup?prompt=${encodeURIComponent(text)}`);
+    }
   };
 
   return (
@@ -124,7 +124,7 @@ export default function HomePage() {
           HERO — gradient background, big prompt box
       ════════════════════════════════════════════════════════════════════ */}
       <section
-        className="flex flex-col items-center justify-center px-4 pt-24 pb-20 text-center relative overflow-hidden"
+        className="flex flex-col items-center justify-center px-4 pt-24 pb-10 text-center relative overflow-hidden"
         style={{
           background: "linear-gradient(160deg, #eef2ff 0%, #e0e7ff 30%, #f0f9ff 60%, #f8fafc 100%)",
         }}
@@ -203,26 +203,80 @@ export default function HomePage() {
           </div>
 
           {/* Not sure label */}
-          <p className="mt-6 text-[11px] font-semibold text-gray-400 uppercase tracking-[0.12em]">
-            Not sure where to start? Try one of these:
+          <p className="mt-8 text-[11px] font-semibold text-gray-400 uppercase tracking-[0.12em]">
+            Or choose a use case to get started
           </p>
         </div>
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          USE-CASE CHIPS — blockchain only
+          USE-CASE TEMPLATE GRID — all templates, interactive
       ════════════════════════════════════════════════════════════════════ */}
-      <section id="usecases" className="bg-white px-4 pt-5 pb-14">
-        <div className="max-w-2xl mx-auto flex flex-wrap justify-center gap-2.5">
-          {USE_CASES.map((u) => (
+      <section id="usecases" className="bg-white px-4 pt-6 pb-16">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {BUILTIN_TEMPLATES.map((t) => (
+              <div
+                key={t.id}
+                className={`group rounded-2xl border bg-white overflow-hidden transition-all duration-200 cursor-pointer
+                  ${activeTemplate === t.id
+                    ? "border-indigo-300 shadow-lg shadow-indigo-100/50"
+                    : "border-gray-100 hover:border-indigo-200 hover:shadow-md"}`}
+                onClick={() => setActiveTemplate(activeTemplate === t.id ? null : t.id)}
+              >
+                {/* Card header */}
+                <div className={`h-16 bg-gradient-to-br ${t.gradient} flex items-center gap-3 px-4`}>
+                  <span className="text-2xl">{t.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-white text-sm leading-tight">{t.name}</p>
+                    <p className="text-white/70 text-[11px] truncate">{t.tagline}</p>
+                  </div>
+                  <ChevronRight className={`w-4 h-4 text-white/60 shrink-0 transition-transform duration-200 ${activeTemplate === t.id ? "rotate-90" : "group-hover:translate-x-0.5"}`} />
+                </div>
+
+                {/* Prompt examples — always visible, highlighted on active */}
+                <div className="p-3 space-y-1.5">
+                  {t.suggestedPrompts.slice(0, 3).map((p, i) => (
+                    <button
+                      key={i}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSubmit(p, t.id);
+                      }}
+                      className="w-full text-left text-xs text-gray-600 hover:text-indigo-700 bg-gray-50 hover:bg-indigo-50 border border-transparent hover:border-indigo-200 rounded-xl px-3 py-2 transition-all duration-150 leading-relaxed"
+                    >
+                      <span className="text-gray-300 mr-1.5">›</span>
+                      {p}
+                    </button>
+                  ))}
+                  {/* Features row */}
+                  <div className="pt-1.5 flex flex-wrap gap-1">
+                    {t.features.slice(0, 3).map((f) => (
+                      <span key={f} className="text-[10px] bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">
+                        {f}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA below grid */}
+          <div className="mt-8 text-center">
+            <p className="text-sm text-gray-400 mb-3">
+              {session
+                ? "Click any prompt above to start building instantly →"
+                : "Click any prompt to start · Sign up is free, no credit card required"}
+            </p>
             <button
-              key={u.label}
-              onClick={() => handleSubmit(u.prompt)}
-              className="text-sm font-medium text-gray-700 hover:text-indigo-700 bg-gray-50 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300 rounded-full px-4 py-2 transition-all duration-150"
+              onClick={() => session ? router.push("/projects/new") : router.push("/signup")}
+              className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors shadow-sm"
             >
-              {u.label}
+              {session ? "Open Builder" : "Start Building Free"}
+              <ArrowUp className="w-3.5 h-3.5 rotate-90" />
             </button>
-          ))}
+          </div>
         </div>
       </section>
 
@@ -294,10 +348,10 @@ export default function HomePage() {
             Join founders shipping secure, audited crypto projects on Block67. Free to start — no credit card required.
           </p>
           <button
-            onClick={() => router.push("/signup")}
+            onClick={() => router.push(session ? "/projects/new" : "/signup")}
             className="inline-flex items-center gap-2 bg-white text-indigo-700 font-bold text-sm px-8 py-3.5 rounded-xl hover:bg-indigo-50 transition-colors shadow-lg"
           >
-            Start Building Free <ArrowUp className="w-4 h-4 rotate-90" />
+            {session ? "Open Builder" : "Start Building Free"} <ArrowUp className="w-4 h-4 rotate-90" />
           </button>
           <div className="mt-7 flex items-center justify-center gap-5 text-indigo-300 text-xs">
             <span className="flex items-center gap-1.5"><Shield className="w-3.5 h-3.5" />Audited contracts</span>

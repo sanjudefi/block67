@@ -171,6 +171,18 @@ function parseUnits(val: string, decimals = 18): bigint {
   return BigInt(w || "0") * (10n ** BigInt(decimals)) + BigInt(fracPadded || "0");
 }
 
+// ── Provider helper ───────────────────────────────────────────────────────────
+// When wallet is connected use MetaMask's injected provider for reads — it is
+// always on the correct chain and avoids public RPC rate-limits / timeouts.
+// Falls back to JsonRpcProvider when no wallet is available (page load, SEO).
+async function mkReadProvider(rpcUrl: string, walletConnected = false) {
+  const { ethers } = await import("ethers");
+  if (walletConnected && typeof window !== "undefined" && window.ethereum) {
+    return new ethers.BrowserProvider(window.ethereum);
+  }
+  return new ethers.JsonRpcProvider(rpcUrl);
+}
+
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
 function hexToRgb(hex: string): string {
@@ -563,8 +575,8 @@ function useWallet(requiredChainId: number, projectSlug: string) {
 
 // ── ERC-20 / Meme Token dApp ──────────────────────────────────────────────────
 
-function ERC20DApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
-  const isMeme = config._templateKey === "meme-token";
+function ERC20DApp({ d, config, projectSlug, templateKey }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string; templateKey?: string }) {
+  const isMeme = templateKey === "meme-token" || config._templateKey === "meme-token";
   const abi    = (d.contractAbi as string[] | null) ?? ERC20_ABI;
   const { wallet, error: wErr, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
 
@@ -584,8 +596,8 @@ function ERC20DApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Reco
 
   const loadInfo = useCallback(async () => {
     try {
+      const provider   = await mkReadProvider(d.rpcUrl, wallet.connected);
       const { ethers } = await import("ethers");
-      const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
       const contract   = new ethers.Contract(d.contractAddress, abi, provider);
       const [name, symbol, decimals, supply, owner] = await Promise.all([
         contract.name().catch(() => config.tokenName || "Token"),
@@ -597,19 +609,22 @@ function ERC20DApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Reco
       const tax = isMeme ? await contract.taxBps().catch(() => null) : null;
       setInfo({ name, symbol, supply: fmtUnits(supply, Number(decimals), 2), decimals: Number(decimals), owner });
       if (tax !== null) setTaxBps(Number(tax));
-    } catch { /* RPC might fail on unsupported chains */ }
+    } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [d, abi, config, isMeme]);
+  }, [d, abi, config, isMeme, wallet.connected]);
 
   const loadBalance = useCallback(async () => {
     if (!wallet.connected) return;
     try {
       const { ethers } = await import("ethers");
-      const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+      const provider   = await mkReadProvider(d.rpcUrl, true);
       const contract   = new ethers.Contract(d.contractAddress, abi, provider);
       const bal: bigint = await contract.balanceOf(wallet.address);
       setBalance(fmtUnits(bal, info.decimals));
-    } catch { setBalance("—"); }
+    } catch (e) {
+      setBalance("—");
+      console.warn("[balance]", e);
+    }
   }, [wallet, d, abi, info.decimals]);
 
   useEffect(() => { loadInfo(); }, [loadInfo]);
@@ -695,10 +710,17 @@ function ERC20DApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Reco
           <GlassCard accent={accent}>
             <div className="flex items-center justify-between mb-1">
               <p className="text-[11px] text-white/40 uppercase tracking-wider">Your Balance</p>
-              <button onClick={loadBalance} className="text-white/30 hover:text-white/70"><RefreshCw className="w-3 h-3" /></button>
+              <button onClick={loadBalance} className="text-white/30 hover:text-white/70 transition-colors"><RefreshCw className="w-3 h-3" /></button>
             </div>
-            <p className="text-2xl font-bold text-white">{balance || "—"} <span className="text-base font-normal text-white/40">{info.symbol}</span></p>
+            {balance === "" ? (
+              <div className="flex items-center gap-2 text-white/30 text-sm"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…</div>
+            ) : (
+              <p className="text-2xl font-bold text-white">{balance} <span className="text-base font-normal text-white/40">{info.symbol}</span></p>
+            )}
             <p className="text-xs text-white/30 font-mono mt-1">{shortenAddress(wallet.address)}</p>
+            {onWrongChain && (
+              <p className="text-xs text-amber-400 mt-1.5">⚠ Switch to {d.chainName} to see live balance</p>
+            )}
           </GlassCard>
         )}
 
@@ -761,7 +783,7 @@ function ERC20DApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Reco
 
 // ── NFT Mint dApp ─────────────────────────────────────────────────────────────
 
-function NFTDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
+function NFTDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string; templateKey?: string }) {
   const abi = (d.contractAbi as string[] | null) ?? ERC721_ABI;
   const { wallet, error: wErr, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
 
@@ -778,7 +800,7 @@ function NFTDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record
   const loadInfo = useCallback(async () => {
     try {
       const { ethers } = await import("ethers");
-      const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+      const provider   = await mkReadProvider(d.rpcUrl, wallet.connected);
       const contract   = new ethers.Contract(d.contractAddress, abi, provider);
       const [name, symbol, maxSupply, mintPrice, owner] = await Promise.all([
         contract.name().catch(() => config.collectionName || "NFT"),
@@ -792,17 +814,17 @@ function NFTDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record
       setInfo({ name, symbol, maxSupply, mintPrice, minted, saleActive, owner });
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [d, abi, config]);
+  }, [d, abi, config, wallet.connected]);
 
   const loadBalance = useCallback(async () => {
     if (!wallet.connected) return;
     try {
       const { ethers } = await import("ethers");
-      const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+      const provider   = await mkReadProvider(d.rpcUrl, true);
       const contract   = new ethers.Contract(d.contractAddress, abi, provider);
       const bal = await contract.balanceOf(wallet.address);
       setBalance(bal);
-    } catch { /* ignore */ }
+    } catch (e) { console.warn("[nft balance]", e); }
   }, [wallet, d, abi]);
 
   useEffect(() => { loadInfo(); }, [loadInfo]);
@@ -954,7 +976,7 @@ function NFTDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record
 
 // ── DAO Governance dApp ───────────────────────────────────────────────────────
 
-function DAODApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
+function DAODApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string; templateKey?: string }) {
   const abi = (d.contractAbi as string[] | null) ?? DAO_ABI;
   const { wallet, error: wErr, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
 
@@ -973,7 +995,7 @@ function DAODApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record
     (async () => {
       try {
         const { ethers } = await import("ethers");
-        const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+        const provider   = await mkReadProvider(d.rpcUrl, wallet.connected);
         const contract   = new ethers.Contract(d.contractAddress, abi, provider);
         const [name, symbol, supply, owner] = await Promise.all([
           contract.name().catch(() => config.daoName || "DAO Token"),
@@ -985,14 +1007,14 @@ function DAODApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record
       } catch { /* ignore */ }
       finally { setLoading(false); }
     })();
-  }, [d, abi, config]);
+  }, [d, abi, config, wallet.connected]);
 
   useEffect(() => {
     if (!wallet.connected) return;
     (async () => {
       try {
         const { ethers } = await import("ethers");
-        const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+        const provider   = await mkReadProvider(d.rpcUrl, true);
         const contract   = new ethers.Contract(d.contractAddress, abi, provider);
         const [bal, del] = await Promise.all([
           contract.balanceOf(wallet.address).catch(() => 0n),
@@ -1000,7 +1022,7 @@ function DAODApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record
         ]);
         setBalance(fmtUnits(bal, 18, 2));
         setDelegate(del);
-      } catch { /* ignore */ }
+      } catch (e) { console.warn("[dao balance]", e); }
     })();
   }, [wallet, d, abi]);
 
@@ -1087,7 +1109,7 @@ function DAODApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record
 
 // ── Staking dApp ──────────────────────────────────────────────────────────────
 
-function StakingDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
+function StakingDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string; templateKey?: string }) {
   const abi = (d.contractAbi as string[] | null) ?? STAKING_ABI;
   const { wallet, error: wErr, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
 
@@ -1105,7 +1127,7 @@ function StakingDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Re
     (async () => {
       try {
         const { ethers } = await import("ethers");
-        const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+        const provider   = await mkReadProvider(d.rpcUrl, wallet.connected);
         const contract   = new ethers.Contract(d.contractAddress, abi, provider);
         const [apy, lock, total] = await Promise.all([
           contract.APY_BPS().catch(() => BigInt(Math.round(Number(config.apy || 12) * 100))),
@@ -1116,14 +1138,14 @@ function StakingDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Re
       } catch { /* ignore */ }
       finally { setLoading(false); }
     })();
-  }, [d, abi, config]);
+  }, [d, abi, config, wallet.connected]);
 
   useEffect(() => {
     if (!wallet.connected) return;
     (async () => {
       try {
         const { ethers } = await import("ethers");
-        const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+        const provider   = await mkReadProvider(d.rpcUrl, true);
         const contract   = new ethers.Contract(d.contractAddress, abi, provider);
         const [staked, earned, stakedAt] = await Promise.all([
           contract.staked(wallet.address).catch(() => 0n),
@@ -1131,7 +1153,7 @@ function StakingDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Re
           contract.stakedAt(wallet.address).catch(() => 0n),
         ]);
         setPosition({ staked: fmtUnits(staked, 18, 4), earned: fmtUnits(earned, 18, 6), stakedAt: Number(stakedAt) });
-      } catch { /* ignore */ }
+      } catch (e) { console.warn("[staking position]", e); }
     })();
   }, [wallet, d, abi]);
 
@@ -1311,7 +1333,7 @@ function ContractInfo({ d, accent }: { d: DeploymentInfo; accent: string }) {
 
 // ── Pump Token dApp ───────────────────────────────────────────────────────────
 
-function PumpTokenDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
+function PumpTokenDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string; templateKey?: string }) {
   const abi = (d.contractAbi as string[] | null) ?? PUMP_ABI;
   const { wallet, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
 
@@ -1329,7 +1351,7 @@ function PumpTokenDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: 
     (async () => {
       try {
         const { ethers } = await import("ethers");
-        const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+        const provider   = await mkReadProvider(d.rpcUrl, wallet.connected);
         const contract   = new ethers.Contract(d.contractAddress, abi, provider);
         const [name, symbol, price, supply] = await Promise.all([
           contract.name().catch(() => config.tokenName || "PumpToken"),
@@ -1340,18 +1362,18 @@ function PumpTokenDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: 
         setInfo({ name, symbol, decimals: 18, price: fmtUnits(price, 18, 8), supply: fmtUnits(supply, 18, 2) });
       } catch { /* ignore */ }
     })();
-  }, [d, abi, config]);
+  }, [d, abi, config, wallet.connected]);
 
   useEffect(() => {
     if (!wallet.connected) return;
     (async () => {
       try {
         const { ethers } = await import("ethers");
-        const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+        const provider   = await mkReadProvider(d.rpcUrl, true);
         const contract   = new ethers.Contract(d.contractAddress, abi, provider);
         const bal = await contract.balanceOf(wallet.address).catch(() => 0n);
         setBalance(fmtUnits(bal, 18, 4));
-      } catch { /* ignore */ }
+      } catch (e) { console.warn("[pump balance]", e); }
     })();
   }, [wallet, d, abi]);
 
@@ -1466,7 +1488,7 @@ function PumpTokenDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: 
 
 // ── NFT Mint Page dApp ────────────────────────────────────────────────────────
 
-function NFTMintDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
+function NFTMintDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string; templateKey?: string }) {
   const abi = (d.contractAbi as string[] | null) ?? OPEN_EDITION_ABI;
   const { wallet, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
 
@@ -1483,7 +1505,7 @@ function NFTMintDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Re
     (async () => {
       try {
         const { ethers } = await import("ethers");
-        const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+        const provider   = await mkReadProvider(d.rpcUrl, wallet.connected);
         const contract   = new ethers.Contract(d.contractAddress, abi, provider);
         const [name, symbol, max, price, minted, saleActive, owner] = await Promise.all([
           contract.name().catch(() => config.collectionName || "NFT Drop"),
@@ -1497,17 +1519,17 @@ function NFTMintDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Re
         setInfo({ name, symbol, max, price, minted, saleActive, owner });
       } catch { /* ignore */ }
     })();
-  }, [d, abi, config]);
+  }, [d, abi, config, wallet.connected]);
 
   useEffect(() => {
     if (!wallet.connected) return;
     (async () => {
       try {
         const { ethers } = await import("ethers");
-        const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+        const provider   = await mkReadProvider(d.rpcUrl, true);
         const contract   = new ethers.Contract(d.contractAddress, abi, provider);
         setBalance(await contract.balanceOf(wallet.address).catch(() => 0n));
-      } catch { /* ignore */ }
+      } catch (e) { console.warn("[nft-mint balance]", e); }
     })();
   }, [wallet, d, abi]);
 
@@ -1627,7 +1649,7 @@ function NFTMintDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Re
 
 // ── Token-Gated Access dApp ───────────────────────────────────────────────────
 
-function TokenGatedDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
+function TokenGatedDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string; templateKey?: string }) {
   const abi = (d.contractAbi as string[] | null) ?? TOKEN_GATE_ABI;
   const { wallet, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
 
@@ -1643,7 +1665,7 @@ function TokenGatedDApp({ d, config, projectSlug }: { d: DeploymentInfo; config:
     setChecking(true);
     try {
       const { ethers } = await import("ethers");
-      const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+      const provider   = await mkReadProvider(d.rpcUrl, true);
       const contract   = new ethers.Contract(d.contractAddress, abi, provider);
       const [access, min] = await Promise.all([
         contract.hasAccess(wallet.address).catch(() => false),
@@ -1651,7 +1673,7 @@ function TokenGatedDApp({ d, config, projectSlug }: { d: DeploymentInfo; config:
       ]);
       setHasAccess(access);
       setMinBal(fmtUnits(min, 18, 0));
-    } catch { setHasAccess(false); }
+    } catch (e) { console.warn("[token-gate]", e); setHasAccess(false); }
     finally { setChecking(false); }
   }, [wallet.connected, wallet.address, d, abi, config]);
 
@@ -1747,7 +1769,7 @@ function TokenGatedDApp({ d, config, projectSlug }: { d: DeploymentInfo; config:
 
 // ── Click-to-Earn dApp ────────────────────────────────────────────────────────
 
-function ClickToEarnDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string }) {
+function ClickToEarnDApp({ d, config, projectSlug }: { d: DeploymentInfo; config: Record<string, string>; projectSlug: string; templateKey?: string }) {
   const abi = (d.contractAbi as string[] | null) ?? CLICK_EARN_ABI;
   const { wallet, connect, switchChain, onWrongChain } = useWallet(d.evmChainId, projectSlug);
 
@@ -1766,7 +1788,7 @@ function ClickToEarnDApp({ d, config, projectSlug }: { d: DeploymentInfo; config
     if (!wallet.connected) return;
     try {
       const { ethers } = await import("ethers");
-      const provider   = new ethers.JsonRpcProvider(d.rpcUrl);
+      const provider   = await mkReadProvider(d.rpcUrl, wallet.connected);
       const contract   = new ethers.Contract(d.contractAddress, abi, provider);
       const [rpc, pend, ttl, tot] = await Promise.all([
         contract.rewardPerClick().catch(() => 0n),
@@ -1778,7 +1800,7 @@ function ClickToEarnDApp({ d, config, projectSlug }: { d: DeploymentInfo; config
       setPending(fmtUnits(pend, 18, 6));
       setCoolLeft(Number(ttl));
       setClicks(Number(tot));
-    } catch { /* ignore */ }
+    } catch (e) { console.warn("[click-earn state]", e); }
   }, [wallet.connected, wallet.address, d, abi]);
 
   useEffect(() => { loadState(); }, [loadState]);
@@ -1963,7 +1985,7 @@ export function ProjectDApp({ data }: { data: ProjectData }) {
     );
   }
 
-  const props = { d, config, projectSlug: data.slug };
+  const props = { d, config, projectSlug: data.slug, templateKey };
   switch (templateKey) {
     case "erc20-token":      return <ERC20DApp       {...props} />;
     case "meme-token":       return <ERC20DApp       {...props} />;
