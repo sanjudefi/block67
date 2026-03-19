@@ -1,10 +1,15 @@
-// Admin layout — ADMIN role guard (middleware already ensures auth)
+// Admin layout — ADMIN role guard + minimal responsive nav
 export const dynamic = "force-dynamic";
 
-import { cookies }    from "next/headers";
-import { getToken }   from "next-auth/jwt";
-import { redirect }   from "next/navigation";
-import { AppSidebar } from "@/components/app-sidebar";
+import { cookies }  from "next/headers";
+import { getToken } from "next-auth/jwt";
+import { redirect } from "next/navigation";
+import Link         from "next/link";
+
+const NAV = [
+  { href: "/admin/users", label: "Users" },
+  { href: "/admin/plans", label: "Plans" },
+];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   let role: string | null = null;
@@ -20,9 +25,45 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (role !== "ADMIN") redirect("/admin/login");
 
   return (
-    <div className="min-h-screen bg-gray-950 flex">
-      <AppSidebar user={{}} />
-      <main className="flex-1 ml-64 p-8">{children}</main>
+    <div className="min-h-screen bg-gray-950 text-white">
+      {/* Top nav bar */}
+      <header className="sticky top-0 z-40 bg-gray-900 border-b border-gray-800">
+        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <span className="text-white text-xs font-black">b</span>
+            </div>
+            <span className="text-white font-bold text-sm hidden sm:block">block67</span>
+            <span className="text-gray-600 text-sm hidden sm:block">/</span>
+            <span className="text-gray-400 text-sm hidden sm:block">Admin</span>
+          </div>
+
+          {/* Nav links */}
+          <nav className="flex items-center gap-1">
+            {NAV.map((n) => (
+              <Link
+                key={n.href}
+                href={n.href}
+                className="px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                {n.label}
+              </Link>
+            ))}
+            <form action="/api/auth/signout" method="POST">
+              <button
+                type="submit"
+                className="ml-2 px-3 py-1.5 text-xs text-gray-500 hover:text-red-400 hover:bg-red-950 rounded-lg transition-colors border border-gray-800"
+              >
+                Sign out
+              </button>
+            </form>
+          </nav>
+        </div>
+      </header>
+
+      {/* Page content */}
+      <main className="max-w-6xl mx-auto px-4 py-8">{children}</main>
     </div>
   );
 }
