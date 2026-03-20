@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { signIn }   from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -31,11 +32,8 @@ export default function AdminLoginPage() {
 
       {/* Logo */}
       <div className="mb-8 text-center">
-        <div className="inline-flex items-center gap-2.5 mb-2">
-          <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/30">
-            <span className="text-white text-base font-black">b</span>
-          </div>
-          <span className="text-white font-bold text-xl tracking-tight">block67</span>
+        <div className="flex justify-center mb-2">
+          <Image src="/block_67-logo.png" alt="Block67" width={140} height={39} className="invert" />
         </div>
         <p className="text-gray-500 text-sm">Admin Panel</p>
       </div>

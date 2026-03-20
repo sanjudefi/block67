@@ -10,17 +10,13 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <div className="max-w-6xl mx-auto w-full flex items-center justify-between">
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center">
             <Image
               src="/block_67-logo.png"
               alt="block67"
-              width={32}
-              height={32}
-              className="rounded-lg"
+              width={130}
+              height={36}
             />
-            <span className="text-base font-bold text-gray-900">
-              block<span className="text-indigo-600">67</span>
-            </span>
           </Link>
 
           {/* Center links */}

@@ -5,7 +5,8 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { Zap, Menu, X, Settings, LogOut, User, Plus, AlertTriangle } from "lucide-react";
+import { Menu, X, Settings, LogOut, User, Plus, AlertTriangle } from "lucide-react";
+import Image from "next/image";
 import { Footer } from "./Footer";
 
 interface UserProps {
@@ -96,13 +97,8 @@ export function PageLayout({ user, children }: { user: UserProps; children: Reac
       <nav className="h-12 bg-[#0f1117]/95 backdrop-blur-md border-b border-white/10 flex items-center px-4 gap-4 fixed top-0 left-0 right-0 z-30">
 
         {/* Logo */}
-        <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
-          <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center">
-            <Zap className="w-3.5 h-3.5 text-white" />
-          </div>
-          <span className="font-bold text-white text-sm">
-            block<span className="text-indigo-400">67</span>
-          </span>
+        <Link href="/dashboard" className="flex items-center shrink-0">
+          <Image src="/block_67-logo.png" alt="Block67" width={90} height={25} className="invert" />
         </Link>
 
         {/* Nav links — desktop */}

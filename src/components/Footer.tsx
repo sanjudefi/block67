@@ -127,8 +127,7 @@ export function Footer() {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <Image src="/block_67-logo.png" alt="block67" width={24} height={24} className="rounded-md" />
-              <span className="font-bold text-white text-sm">block<span className="text-indigo-400">67</span></span>
+              <Image src="/block_67-logo.png" alt="block67" width={100} height={28} className="invert" />
             </div>
             <p className="text-xs text-gray-600 max-w-xs">
               Build &amp; deploy production-grade blockchain apps in minutes. No code required.

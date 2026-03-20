@@ -5,6 +5,7 @@ import { cookies }  from "next/headers";
 import { getToken } from "next-auth/jwt";
 import { redirect } from "next/navigation";
 import Link         from "next/link";
+import Image        from "next/image";
 
 const NAV = [
   { href: "/admin/users",    label: "Users"    },
@@ -33,10 +34,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <span className="text-white text-xs font-black">b</span>
-            </div>
-            <span className="text-white font-bold text-sm hidden sm:block">block67</span>
+            <Image src="/block_67-logo.png" alt="Block67" width={90} height={25} className="invert" />
             <span className="text-gray-600 text-sm hidden sm:block">/</span>
             <span className="text-gray-400 text-sm hidden sm:block">Admin</span>
           </div>

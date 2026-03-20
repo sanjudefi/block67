@@ -7,8 +7,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   LayoutDashboard, Layers, Plus, Settings, Shield, Users,
-  CheckSquare, LogOut, ChevronDown, Zap,
+  CheckSquare, LogOut, ChevronDown,
 } from "lucide-react";
+import Image from "next/image";
 
 interface User {
   name?: string | null;
@@ -37,13 +38,8 @@ export function AppShell({ user, children }: { user: User; children: React.React
       <aside className="w-64 h-screen fixed left-0 top-0 bg-gray-900 border-r border-gray-800 flex flex-col z-20">
         {/* Logo */}
         <div className="px-5 py-4 border-b border-gray-800 flex items-center gap-2">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-lg font-bold text-white">
-              block<span className="text-indigo-400">67</span>
-            </span>
+          <Link href="/dashboard" className="flex items-center">
+            <Image src="/block_67-logo.png" alt="Block67" width={100} height={28} className="invert" />
           </Link>
           {user.role === "ADMIN" && (
             <span className="ml-auto text-[10px] text-indigo-400 bg-indigo-950 border border-indigo-800 px-1.5 py-0.5 rounded font-medium">
