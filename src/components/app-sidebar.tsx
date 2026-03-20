@@ -24,7 +24,7 @@ export function AppSidebar({
       {/* Logo */}
       <div className="px-5 py-4 border-b border-gray-800">
         <Link href="/dashboard" className="flex items-center">
-          <Image src="/block_67-logo.png" alt="block67" width={100} height={28} className="invert" />
+          <Image src="/block_67-logo.jpg" alt="block67" width={100} height={28} className="invert" />
         </Link>
         {user.role === "ADMIN" && (
           <span className="ml-2 text-xs text-indigo-400 bg-indigo-950 border border-indigo-800 px-1.5 py-0.5 rounded">

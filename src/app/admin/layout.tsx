@@ -34,7 +34,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <Image src="/block_67-logo.png" alt="Block67" width={90} height={25} className="invert" />
+            <Image src="/block_67-logo.jpg" alt="Block67" width={90} height={25} className="invert" />
             <span className="text-gray-600 text-sm hidden sm:block">/</span>
             <span className="text-gray-400 text-sm hidden sm:block">Admin</span>
           </div>

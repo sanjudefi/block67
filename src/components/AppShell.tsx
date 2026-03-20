@@ -39,7 +39,7 @@ export function AppShell({ user, children }: { user: User; children: React.React
         {/* Logo */}
         <div className="px-5 py-4 border-b border-gray-800 flex items-center gap-2">
           <Link href="/dashboard" className="flex items-center">
-            <Image src="/block_67-logo.png" alt="Block67" width={100} height={28} className="invert" />
+            <Image src="/block_67-logo.jpg" alt="Block67" width={100} height={28} className="invert" />
           </Link>
           {user.role === "ADMIN" && (
             <span className="ml-auto text-[10px] text-indigo-400 bg-indigo-950 border border-indigo-800 px-1.5 py-0.5 rounded font-medium">

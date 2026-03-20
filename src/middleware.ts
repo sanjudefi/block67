@@ -20,7 +20,8 @@ const APP_DOMAIN = (process.env.NEXT_PUBLIC_APP_DOMAIN ?? "block67.app").toLower
 const PUBLIC_PREFIXES = [
   "/login",
   "/signup",
-  "/admin/login",     // dedicated admin login page
+  "/admin-login",     // standalone admin login page (outside /admin layout)
+  "/admin/login",     // legacy redirect shim → /admin-login
   "/site/",           // direct /site/[slug] URLs (e.g. block67.app/site/daogover)
   "/api/auth",        // NextAuth endpoints
   "/api/chains",      // public chain list

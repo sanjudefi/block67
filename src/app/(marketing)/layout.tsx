@@ -12,7 +12,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           {/* Logo */}
           <Link href="/" className="flex items-center">
             <Image
-              src="/block_67-logo.png"
+              src="/block_67-logo.jpg"
               alt="block67"
               width={130}
               height={36}

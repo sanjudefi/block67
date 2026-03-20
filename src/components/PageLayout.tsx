@@ -98,7 +98,7 @@ export function PageLayout({ user, children }: { user: UserProps; children: Reac
 
         {/* Logo */}
         <Link href="/dashboard" className="flex items-center shrink-0">
-          <Image src="/block_67-logo.png" alt="Block67" width={90} height={25} className="invert" />
+          <Image src="/block_67-logo.jpg" alt="Block67" width={90} height={25} className="invert" />
         </Link>
 
         {/* Nav links — desktop */}

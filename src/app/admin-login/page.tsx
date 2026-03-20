@@ -33,7 +33,7 @@ export default function AdminLoginPage() {
       {/* Logo */}
       <div className="mb-8 text-center">
         <div className="flex justify-center mb-2">
-          <Image src="/block_67-logo.png" alt="Block67" width={140} height={39} className="invert" />
+          <Image src="/block_67-logo.jpg" alt="Block67" width={140} height={39} className="invert" />
         </div>
         <p className="text-gray-500 text-sm">Admin Panel</p>
       </div>
