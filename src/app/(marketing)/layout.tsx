@@ -23,6 +23,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <a href="#usecases"   className="text-sm text-gray-400 hover:text-white transition-colors">Use Cases</a>
             <a href="#howitworks" className="text-sm text-gray-400 hover:text-white transition-colors">How it works</a>
             <a href="#features"   className="text-sm text-gray-400 hover:text-white transition-colors">Features</a>
+            <Link href="/contact" className="text-sm text-gray-400 hover:text-white transition-colors">Contact</Link>
           </div>
 
           {/* Auth */}

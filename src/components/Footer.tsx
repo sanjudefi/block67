@@ -140,8 +140,8 @@ export function Footer() {
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-gray-500">
             <Link href="/use-cases"  className="hover:text-white transition-colors">Use Cases</Link>
             <Link href="/dashboard"  className="hover:text-white transition-colors">Dashboard</Link>
+            <Link href="/contact"    className="hover:text-white transition-colors">Contact</Link>
             <Link href="/terms"      className="hover:text-white transition-colors">Terms of Service</Link>
-            <a href="mailto:sanju.m@catchway.com" className="hover:text-white transition-colors">Contact</a>
           </div>
         </div>
 
