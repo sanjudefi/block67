@@ -188,11 +188,11 @@ function parseUnits(val: string, decimals = 18): bigint {
 // When wallet is connected use MetaMask's injected provider for reads — it is
 // always on the correct chain and avoids public RPC rate-limits / timeouts.
 // Falls back to JsonRpcProvider when no wallet is available (page load, SEO).
-async function mkReadProvider(rpcUrl: string, walletConnected = false) {
+// Always use the chain's own RPC URL for reads — BrowserProvider uses whatever
+// chain MetaMask is currently on, which may differ from the contract's chain,
+// causing totalSupply / balanceOf to silently return 0.
+async function mkReadProvider(rpcUrl: string, _walletConnected = false) {
   const { ethers } = await import("ethers");
-  if (walletConnected && typeof window !== "undefined" && window.ethereum) {
-    return new ethers.BrowserProvider(window.ethereum);
-  }
   return new ethers.JsonRpcProvider(rpcUrl);
 }
 
@@ -612,6 +612,26 @@ function ERC20DApp({ d, config, projectSlug, templateKey }: { d: DeploymentInfo;
 
   const showToast = (msg: string, ok: boolean) => { setToast({ msg, ok }); setTimeout(() => setToast({ msg: "", ok: true }), 5000); };
 
+  const addToMetaMask = async () => {
+    if (!window.ethereum) { showToast("MetaMask not found. Install it at metamask.io", false); return; }
+    try {
+      await window.ethereum.request({
+        method: "wallet_watchAsset",
+        params: {
+          type: "ERC20",
+          options: {
+            address:  d.contractAddress,
+            symbol:   info.symbol,
+            decimals: info.decimals,
+          },
+        },
+      });
+      showToast(`${info.symbol} added to MetaMask!`, true);
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message.slice(0, 100) : "Failed to add token", false);
+    }
+  };
+
   const loadInfo = useCallback(async () => {
     try {
       const provider   = await mkReadProvider(d.rpcUrl, wallet.connected);
@@ -927,27 +947,54 @@ function ERC20DApp({ d, config, projectSlug, templateKey }: { d: DeploymentInfo;
           <GlassCard accent={accent}>
             <p className="text-xs text-white/40 uppercase tracking-wider font-semibold mb-3">Next Steps</p>
             <div className="space-y-2">
-              {[
-                { icon: "🔍", label: "Verify on block explorer", href: `${d.explorerUrl}/address/${d.contractAddress}#code`, desc: "Make your source code public & trustworthy" },
-                { icon: "🦊", label: "Add to MetaMask", href: null, desc: `Token address: ${shortenAddress(d.contractAddress)}` },
-                { icon: "📤", label: "Share your token page", href: null, desc: "Share this page URL with your community" },
-                { icon: "💧", label: "Add liquidity on DEX", href: "https://app.uniswap.org", desc: "List on Uniswap, SushiSwap, or PancakeSwap" },
-              ].map((step) => (
-                <div key={step.label} className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors">
-                  <span className="text-base mt-0.5">{step.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm text-white font-medium">{step.label}</span>
-                      {step.href && (
-                        <a href={step.href} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="w-3 h-3 text-white/30 hover:text-white/60" />
-                        </a>
-                      )}
-                    </div>
-                    <p className="text-xs text-white/40 mt-0.5">{step.desc}</p>
+              {/* Verify on explorer */}
+              <a href={`${d.explorerUrl}/address/${d.contractAddress}#code`} target="_blank" rel="noopener noreferrer"
+                className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors">
+                <span className="text-base mt-0.5">🔍</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm text-white font-medium">Verify on block explorer</span>
+                    <ExternalLink className="w-3 h-3 text-white/30" />
                   </div>
+                  <p className="text-xs text-white/40 mt-0.5">Make your source code public &amp; trustworthy</p>
                 </div>
-              ))}
+              </a>
+
+              {/* Add to MetaMask — real wallet_watchAsset call */}
+              <button onClick={addToMetaMask}
+                className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors text-left">
+                <span className="text-base mt-0.5">🦊</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm text-white font-medium">Add to MetaMask</span>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full">Click to add</span>
+                  </div>
+                  <p className="text-xs text-white/40 mt-0.5">Token address: {shortenAddress(d.contractAddress)}</p>
+                </div>
+              </button>
+
+              {/* Share page */}
+              <div className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+                onClick={() => { navigator.clipboard.writeText(window.location.href); showToast("Page URL copied!", true); }}>
+                <span className="text-base mt-0.5">📤</span>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-white font-medium">Share your token page</span>
+                  <p className="text-xs text-white/40 mt-0.5">Share this page URL with your community</p>
+                </div>
+              </div>
+
+              {/* Add liquidity */}
+              <a href="https://app.uniswap.org" target="_blank" rel="noopener noreferrer"
+                className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors">
+                <span className="text-base mt-0.5">💧</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm text-white font-medium">Add liquidity on DEX</span>
+                    <ExternalLink className="w-3 h-3 text-white/30" />
+                  </div>
+                  <p className="text-xs text-white/40 mt-0.5">List on Uniswap, SushiSwap, or PancakeSwap</p>
+                </div>
+              </a>
             </div>
           </GlassCard>
         )}

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Zap, Star, Loader2, CheckCircle2 } from "lucide-react";
+import Image from "next/image";
+import { Star, Loader2, CheckCircle2 } from "lucide-react";
 
 // ── Inline feedback form ──────────────────────────────────────────────────────
 function FeedbackForm() {
@@ -126,22 +127,20 @@ export function Footer() {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center">
-                <Zap className="w-3.5 h-3.5 text-white" />
-              </div>
+              <Image src="/block_67-logo.png" alt="block67" width={24} height={24} className="rounded-md" />
               <span className="font-bold text-white text-sm">block<span className="text-indigo-400">67</span></span>
             </div>
             <p className="text-xs text-gray-600 max-w-xs">
-              Build & deploy production-grade blockchain apps in minutes. No code required.
+              Build &amp; deploy production-grade blockchain apps in minutes. No code required.
             </p>
           </div>
 
           {/* Links */}
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-gray-500">
-            <Link href="/use-cases"  className="hover:text-white transition-colors">Use Cases</Link>
-            <Link href="/dashboard"  className="hover:text-white transition-colors">Dashboard</Link>
+            <Link href="/"           className="hover:text-white transition-colors">Home</Link>
             <Link href="/contact"    className="hover:text-white transition-colors">Contact</Link>
             <Link href="/terms"      className="hover:text-white transition-colors">Terms of Service</Link>
+            <Link href="/dashboard"  className="hover:text-white transition-colors">Dashboard</Link>
           </div>
         </div>
 
