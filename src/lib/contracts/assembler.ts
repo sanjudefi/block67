@@ -472,7 +472,7 @@ ${pattern === "transparent"
         Block67TransparentProxy(
             address(new ${name}Token()),
             initialOwner,
-            abi.encodeCall(${name}Token.initialize, (
+            abi.encodeCall(${implName}.initialize, (
                 "${c.tokenName || name}",
                 "${sym}",
                 ${supply} * 10**18,
@@ -485,7 +485,7 @@ ${pattern === "transparent"
   : `    constructor(address initialOwner)
         Block67UUPSProxy(
             address(new ${name}Token()),
-            abi.encodeCall(${name}Token.initialize, (
+            abi.encodeCall(${implName}.initialize, (
                 "${c.tokenName || name}",
                 "${sym}",
                 ${supply} * 10**18,
@@ -559,12 +559,12 @@ ${pattern === "beacon"
         Block67TransparentProxy(
             address(new ${name}()),
             initialOwner,
-            abi.encodeCall(${name}.initialize, (${initArgs}))
+            abi.encodeCall(${implName}.initialize, (${initArgs}))
         ) {}`
   : `    constructor(address initialOwner)
         Block67UUPSProxy(
             address(new ${name}()),
-            abi.encodeCall(${name}.initialize, (${initArgs}))
+            abi.encodeCall(${implName}.initialize, (${initArgs}))
         ) {}`
 }
 }

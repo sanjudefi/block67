@@ -81,7 +81,6 @@ export default function HomePage() {
   const [prompt, setPrompt]                 = useState("");
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [visible, setVisible]               = useState(true);
-  const [activeTemplate, setActiveTemplate] = useState<string | null>(null);
 
   // Rotate placeholder text
   useEffect(() => {
@@ -212,50 +211,58 @@ export default function HomePage() {
       {/* ════════════════════════════════════════════════════════════════════
           USE-CASE TEMPLATE GRID — all templates, interactive
       ════════════════════════════════════════════════════════════════════ */}
-      <section id="usecases" className="bg-white px-4 pt-6 pb-16">
+      <section id="usecases" className="bg-[#0f1117] px-4 pt-8 pb-16">
         <div className="max-w-5xl mx-auto">
+          {/* Section header */}
+          <div className="text-center mb-8">
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+              Pick a use case and launch in minutes
+            </h2>
+            <p className="text-gray-400 text-sm">
+              Everything you need — smart contract, frontend, and deployment — built and ready to go.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {BUILTIN_TEMPLATES.map((t) => (
               <div
                 key={t.id}
-                className={`group rounded-2xl border bg-white overflow-hidden transition-all duration-200 cursor-pointer
-                  ${activeTemplate === t.id
-                    ? "border-indigo-300 shadow-lg shadow-indigo-100/50"
-                    : "border-gray-100 hover:border-indigo-200 hover:shadow-md"}`}
-                onClick={() => setActiveTemplate(activeTemplate === t.id ? null : t.id)}
+                className="group rounded-2xl overflow-hidden border border-white/10 bg-white/5 hover:bg-white/8 hover:border-white/20 transition-all duration-200 flex flex-col"
               >
-                {/* Card header */}
-                <div className={`h-16 bg-gradient-to-br ${t.gradient} flex items-center gap-3 px-4`}>
+                {/* Card header — gradient band */}
+                <div className={`h-16 bg-gradient-to-br ${t.gradient} flex items-center gap-3 px-4 shrink-0`}>
                   <span className="text-2xl">{t.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-white text-sm leading-tight">{t.name}</p>
-                    <p className="text-white/70 text-[11px] truncate">{t.tagline}</p>
+                    <p className="text-white/75 text-[11px] truncate">{t.tagline}</p>
                   </div>
-                  <ChevronRight className={`w-4 h-4 text-white/60 shrink-0 transition-transform duration-200 ${activeTemplate === t.id ? "rotate-90" : "group-hover:translate-x-0.5"}`} />
                 </div>
 
-                {/* Prompt examples — always visible, highlighted on active */}
-                <div className="p-3 space-y-1.5">
-                  {t.suggestedPrompts.slice(0, 3).map((p, i) => (
-                    <button
-                      key={i}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSubmit(p, t.id);
-                      }}
-                      className="w-full text-left text-xs text-gray-600 hover:text-indigo-700 bg-gray-50 hover:bg-indigo-50 border border-transparent hover:border-indigo-200 rounded-xl px-3 py-2 transition-all duration-150 leading-relaxed"
-                    >
-                      <span className="text-gray-300 mr-1.5">›</span>
-                      {p}
-                    </button>
-                  ))}
-                  {/* Features row */}
-                  <div className="pt-1.5 flex flex-wrap gap-1">
+                {/* Body */}
+                <div className="p-4 flex flex-col gap-3 flex-1">
+                  {/* Description */}
+                  <p className="text-xs text-gray-300 leading-relaxed line-clamp-2">{t.description}</p>
+
+                  {/* Feature tags */}
+                  <div className="flex flex-wrap gap-1.5">
                     {t.features.slice(0, 3).map((f) => (
-                      <span key={f} className="text-[10px] bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">
+                      <span key={f} className="text-[10px] bg-white/10 text-gray-300 border border-white/10 rounded-full px-2 py-0.5">
                         {f}
                       </span>
                     ))}
+                  </div>
+
+                  {/* Launch row */}
+                  <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/10">
+                    <span className="text-[11px] text-gray-500">
+                      ⏱️ Launch in {t.launchMinutes} min{t.launchMinutes !== 1 ? "s" : ""}
+                    </span>
+                    <button
+                      onClick={() => handleSubmit(t.suggestedPrompts[0], t.id)}
+                      className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-md shadow-emerald-900/40"
+                    >
+                      🚀 Launch
+                    </button>
                   </div>
                 </div>
               </div>
@@ -263,19 +270,16 @@ export default function HomePage() {
           </div>
 
           {/* CTA below grid */}
-          <div className="mt-8 text-center">
-            <p className="text-sm text-gray-400 mb-3">
-              {session
-                ? "Click any prompt above to start building instantly →"
-                : "Click any prompt to start · Sign up is free, no credit card required"}
-            </p>
+          <div className="mt-10 text-center">
             <button
               onClick={() => session ? router.push("/projects/new") : router.push("/signup")}
-              className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors shadow-sm"
+              className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-7 py-3 rounded-xl transition-colors shadow-lg shadow-indigo-900/40"
             >
-              {session ? "Open Builder" : "Start Building Free"}
-              <ArrowUp className="w-3.5 h-3.5 rotate-90" />
+              {session ? "Open Builder →" : "Start Building Free →"}
             </button>
+            <p className="mt-3 text-xs text-gray-500">
+              {session ? "Your projects are waiting" : "Free to start · No credit card required"}
+            </p>
           </div>
         </div>
       </section>

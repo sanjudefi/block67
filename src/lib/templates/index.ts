@@ -42,6 +42,7 @@ export interface BuiltinTemplate {
   suggestedPrompts: string[];
   features: string[];
   chain: string;
+  launchMinutes: number;
 }
 
 export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
@@ -85,6 +86,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["ERC-20 Standard", "Custom Supply", "Mint / Burn", "Transfer Events", "Free Subdomain"],
     chain: "Ethereum / Base / Polygon",
+    launchMinutes: 2,
   },
   {
     id: "nft-collection",
@@ -126,6 +128,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["ERC-721A", "Whitelist Merkle", "Reveal Mechanic", "EIP-2981 Royalties", "Mint Page"],
     chain: "Ethereum / Base",
+    launchMinutes: 3,
   },
   {
     id: "dao-governance",
@@ -165,6 +168,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["On-chain Proposals", "Token Voting", "Timelock", "Treasury", "Governance Dashboard"],
     chain: "Ethereum / Polygon",
+    launchMinutes: 5,
   },
   {
     id: "staking-dashboard",
@@ -204,6 +208,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["Fixed / Flexible APY", "Lock Periods", "Auto-Compound", "Reward Claims", "Live Dashboard"],
     chain: "Ethereum / Base / BSC",
+    launchMinutes: 3,
   },
   {
     id: "meme-token",
@@ -243,6 +248,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["Anti-Bot", "Tax Mechanism", "Liquidity Lock", "Renounced Owner", "Viral Landing Page"],
     chain: "Ethereum / BSC / Base",
+    launchMinutes: 2,
   },
   // ── New viral templates ────────────────────────────────────────────────────
   {
@@ -281,6 +287,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["Bonding Curve", "Auto Price Rise", "Buy / Sell UI", "Live Price Feed", "Viral Share Page"],
     chain: "Ethereum / Base / BSC",
+    launchMinutes: 2,
   },
   {
     id: "nft-mint",
@@ -318,6 +325,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["ERC-721", "Public Mint", "Supply Counter", "Mint UI", "Shareable Link"],
     chain: "Ethereum / Base",
+    launchMinutes: 1,
   },
   {
     id: "token-gated",
@@ -355,6 +363,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["Wallet Verify", "Token Balance Check", "Reveal on Unlock", "Any ERC-20 / ERC-721", "Shareable Link"],
     chain: "Ethereum / Base / Polygon",
+    launchMinutes: 2,
   },
   {
     id: "click-to-earn",
@@ -394,6 +403,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["Click-to-Earn", "ETH Rewards", "Cooldown Logic", "Daily Limit", "Live Leaderboard"],
     chain: "Ethereum / Base",
+    launchMinutes: 3,
   },
   // ── Growth / viral use-case templates ─────────────────────────────────────
   {
@@ -432,6 +442,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["Claim Page", "Wallet Verification", "Per-Wallet Limit", "Batch Airdrop", "Viral Share Link"],
     chain: "Ethereum / Base / BSC",
+    launchMinutes: 2,
   },
   {
     id: "token-presale",
@@ -473,6 +484,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["ETH Payments", "Hard / Soft Cap", "Countdown Timer", "Auto Distribution", "Fundraising Dashboard"],
     chain: "Ethereum / Base / BSC",
+    launchMinutes: 3,
   },
   {
     id: "token-faucet",
@@ -514,6 +526,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["Time-Based Claim", "Anti-Bot Cooldown", "Wallet Validation", "Daily Limit", "Faucet Dashboard"],
     chain: "Ethereum / Base / Polygon",
+    launchMinutes: 1,
   },
   {
     id: "referral-rewards",
@@ -553,6 +566,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["Invite Tracking", "Token Rewards", "Claim Dashboard", "Leaderboard", "Unique Referral Links"],
     chain: "Ethereum / Base / BSC",
+    launchMinutes: 2,
   },
   {
     id: "reward-game",
@@ -596,6 +610,7 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
     ],
     features: ["Spin / Scratch", "Random Rewards", "Cooldown Timer", "Provable Fairness", "Reward History"],
     chain: "Ethereum / Base",
+    launchMinutes: 3,
   },
 ];
 
