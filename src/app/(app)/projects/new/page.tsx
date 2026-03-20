@@ -9,7 +9,16 @@ import { useSession } from "next-auth/react";
 import { PageLayout } from "@/components/PageLayout";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
 import type { BuiltinTemplate } from "@/lib/templates/index";
-import { ArrowLeft, ArrowRight, Check, Zap, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Zap, Send, Sparkles } from "lucide-react";
+
+const CATEGORY_LABELS: Record<string, string> = {
+  TOKEN:        "Tokens",
+  NFT:          "NFTs",
+  DAO:          "DAO",
+  DEFI:         "DeFi",
+  LANDING_PAGE: "Gated",
+  OTHER:        "Games & Growth",
+};
 import { generateProjectName } from "@/lib/utils/projectNames";
 import { UpgradeModal } from "@/components/UpgradeModal";
 
@@ -38,6 +47,7 @@ function NewProjectForm() {
   const [prompt,      setPrompt]      = useState(prePrompt);
   const [projectName, setProjectName] = useState("");
   const [creating,    setCreating]    = useState(false);
+  const [catFilter,   setCatFilter]   = useState("ALL");
   const [error,       setError]       = useState("");
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [projectCount, setProjectCount] = useState(0);
@@ -159,21 +169,62 @@ function NewProjectForm() {
               <div className="flex-1 h-px bg-gray-100" />
             </div>
 
-            {/* Use cases grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {BUILTIN_TEMPLATES.map((t) => (
+            {/* Category filter bar */}
+            {(() => {
+              const cats = [
+                { key: "ALL", label: "All", count: BUILTIN_TEMPLATES.length },
+                ...Object.entries(
+                  BUILTIN_TEMPLATES.reduce((acc, t) => {
+                    acc[t.category] = (acc[t.category] ?? 0) + 1;
+                    return acc;
+                  }, {} as Record<string, number>)
+                ).map(([k, n]) => ({ key: k, label: CATEGORY_LABELS[k] ?? k, count: n })),
+              ];
+              return (
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {cats.map((c) => (
+                    <button
+                      key={c.key}
+                      onClick={() => setCatFilter(c.key)}
+                      className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                        catFilter === c.key
+                          ? "bg-indigo-600 border-indigo-500 text-white shadow-sm"
+                          : "bg-gray-50 border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600"
+                      }`}
+                    >
+                      {c.label} <span className="opacity-60">({c.count})</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* Use cases grid — 2-col, same card design as homepage */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {BUILTIN_TEMPLATES
+                .filter((t) => catFilter === "ALL" || t.category === catFilter)
+                .map((t) => (
                 <button
                   key={t.id}
                   onClick={() => { setSelected(t); setStep("name"); }}
-                  className="group text-left bg-white border border-gray-100 hover:border-indigo-300 hover:shadow-md rounded-2xl overflow-hidden transition-all"
+                  className="group text-left bg-white border border-gray-100 hover:border-indigo-300 hover:shadow-lg rounded-2xl overflow-hidden transition-all flex flex-col"
                 >
-                  <div className={`h-20 bg-gradient-to-br ${t.gradient} flex items-center justify-center relative`}>
-                    <span className="text-3xl">{t.icon}</span>
-                    <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors" />
+                  {/* Tall gradient header with big icon */}
+                  <div className={`h-24 bg-gradient-to-br ${t.gradient} flex flex-col items-center justify-center gap-1.5 relative`}>
+                    <span className="text-5xl drop-shadow-md">{t.icon}</span>
+                    <p className="font-bold text-white text-sm drop-shadow">{t.name}</p>
+                    <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/25 backdrop-blur-sm rounded-full px-2 py-0.5">
+                      <span className="text-emerald-300 text-[10px] font-bold">⏱ {t.launchMinutes} min{t.launchMinutes !== 1 ? "s" : ""}</span>
+                    </div>
                   </div>
-                  <div className="p-3.5">
-                    <p className="font-semibold text-gray-900 text-sm mb-0.5">{t.name}</p>
-                    <p className="text-gray-400 text-xs line-clamp-2 leading-relaxed">{t.tagline}</p>
+                  {/* Body */}
+                  <div className="p-4 flex flex-col gap-2 flex-1">
+                    <p className="text-xs text-gray-600 leading-relaxed">{t.tagline}</p>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {t.features.slice(0, 3).map((f) => (
+                        <span key={f} className="text-[10px] bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">{f}</span>
+                      ))}
+                    </div>
                   </div>
                 </button>
               ))}

@@ -625,7 +625,7 @@ contract Block67TimelockController is
         address[] memory proposers,
         address[] memory executors,
         address initialOwner
-    ) public initializer {
+    ) public override initializer {
         __TimelockController_init(minDelay, proposers, executors, initialOwner);
         __Ownable_init(initialOwner);
     }

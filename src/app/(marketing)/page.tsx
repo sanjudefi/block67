@@ -6,6 +6,16 @@ import { useSession } from "next-auth/react";
 import { ArrowUp, Shield, Code2, Zap, Download, Globe, Lock, ChevronRight } from "lucide-react";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
 
+// ── Category filter labels ─────────────────────────────────────────────────────
+const CATEGORY_LABELS: Record<string, string> = {
+  TOKEN:        "Tokens",
+  NFT:          "NFTs",
+  DAO:          "DAO",
+  DEFI:         "DeFi",
+  LANDING_PAGE: "Gated",
+  OTHER:        "Games & Growth",
+};
+
 // ── Rotating placeholder prompts ──────────────────────────────────────────────
 const ROTATING_PROMPTS = [
   "Launch a meme coin with 1B supply and 2% buy/sell tax…",
@@ -81,6 +91,7 @@ export default function HomePage() {
   const [prompt, setPrompt]                 = useState("");
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [visible, setVisible]               = useState(true);
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
 
   // Rotate placeholder text
   useEffect(() => {
@@ -211,57 +222,89 @@ export default function HomePage() {
       {/* ════════════════════════════════════════════════════════════════════
           USE-CASE TEMPLATE GRID — all templates, interactive
       ════════════════════════════════════════════════════════════════════ */}
-      <section id="usecases" className="bg-[#0f1117] px-4 pt-8 pb-16">
-        <div className="max-w-5xl mx-auto">
+      <section id="usecases" className="bg-[#0f1117] px-4 pt-10 pb-16">
+        <div className="max-w-4xl mx-auto">
           {/* Section header */}
           <div className="text-center mb-8">
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
               Pick a use case and launch in minutes
             </h2>
             <p className="text-gray-400 text-sm">
-              Everything you need — smart contract, frontend, and deployment — built and ready to go.
+              Smart contract · Frontend · Deployment — everything ready to go.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {BUILTIN_TEMPLATES.map((t) => (
+          {/* Category filter bar */}
+          {(() => {
+            const cats: { key: string; label: string; count: number }[] = [
+              { key: "ALL", label: "All", count: BUILTIN_TEMPLATES.length },
+              ...Object.entries(
+                BUILTIN_TEMPLATES.reduce((acc, t) => {
+                  acc[t.category] = (acc[t.category] ?? 0) + 1;
+                  return acc;
+                }, {} as Record<string, number>)
+              ).map(([k, n]) => ({ key: k, label: CATEGORY_LABELS[k] ?? k, count: n })),
+            ];
+            return (
+              <div className="flex flex-wrap justify-center gap-2 mb-8">
+                {cats.map((c) => (
+                  <button
+                    key={c.key}
+                    onClick={() => setCategoryFilter(c.key)}
+                    className={`text-xs font-semibold px-3.5 py-1.5 rounded-full border transition-all ${
+                      categoryFilter === c.key
+                        ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-900/40"
+                        : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    {c.label} <span className="opacity-60 ml-0.5">({c.count})</span>
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* 2-column template grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {BUILTIN_TEMPLATES
+              .filter((t) => categoryFilter === "ALL" || t.category === categoryFilter)
+              .map((t) => (
               <div
                 key={t.id}
-                className="group rounded-2xl overflow-hidden border border-white/10 bg-white/5 hover:bg-white/8 hover:border-white/20 transition-all duration-200 flex flex-col"
+                className="group rounded-2xl overflow-hidden border border-white/10 bg-white/[0.04] hover:bg-white/[0.07] hover:border-white/20 transition-all duration-200 flex flex-col"
               >
-                {/* Card header — gradient band */}
-                <div className={`h-16 bg-gradient-to-br ${t.gradient} flex items-center gap-3 px-4 shrink-0`}>
-                  <span className="text-2xl">{t.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-white text-sm leading-tight">{t.name}</p>
-                    <p className="text-white/75 text-[11px] truncate">{t.tagline}</p>
+                {/* Header — tall gradient with big centered icon */}
+                <div className={`h-28 bg-gradient-to-br ${t.gradient} flex flex-col items-center justify-center gap-1.5 relative`}>
+                  <span className="text-5xl drop-shadow-md">{t.icon}</span>
+                  <p className="font-bold text-white text-sm tracking-wide drop-shadow">{t.name}</p>
+                  {/* Launch time badge — top-right */}
+                  <div className="absolute top-3 right-3 flex items-center gap-1 bg-black/30 backdrop-blur-sm rounded-full px-2.5 py-1">
+                    <span className="text-emerald-400 text-[10px] font-bold">⏱ {t.launchMinutes} min{t.launchMinutes !== 1 ? "s" : ""}</span>
                   </div>
                 </div>
 
                 {/* Body */}
-                <div className="p-4 flex flex-col gap-3 flex-1">
-                  {/* Description */}
-                  <p className="text-xs text-gray-300 leading-relaxed line-clamp-2">{t.description}</p>
+                <div className="p-5 flex flex-col gap-3 flex-1">
+                  <p className="text-sm text-gray-300 leading-relaxed">{t.tagline}</p>
+                  <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{t.description}</p>
 
                   {/* Feature tags */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {t.features.slice(0, 3).map((f) => (
-                      <span key={f} className="text-[10px] bg-white/10 text-gray-300 border border-white/10 rounded-full px-2 py-0.5">
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {t.features.slice(0, 4).map((f) => (
+                      <span key={f} className="text-[10px] bg-white/8 text-gray-400 border border-white/10 rounded-full px-2.5 py-0.5">
                         {f}
                       </span>
                     ))}
                   </div>
 
                   {/* Launch row */}
-                  <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/10">
-                    <span className="text-[11px] text-gray-500">
-                      ⏱️ Launch in {t.launchMinutes} min{t.launchMinutes !== 1 ? "s" : ""}
-                    </span>
+                  <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/10">
+                    <span className="text-[11px] text-gray-500">{t.chain.split(" / ")[0]}</span>
                     <button
                       onClick={() => handleSubmit(t.suggestedPrompts[0], t.id)}
-                      className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-md shadow-emerald-900/40"
+                      className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-lg shadow-emerald-900/30"
                     >
-                      🚀 Launch
+                      🚀 Launch now
                     </button>
                   </div>
                 </div>
@@ -270,10 +313,10 @@ export default function HomePage() {
           </div>
 
           {/* CTA below grid */}
-          <div className="mt-10 text-center">
+          <div className="mt-12 text-center">
             <button
               onClick={() => session ? router.push("/projects/new") : router.push("/signup")}
-              className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-7 py-3 rounded-xl transition-colors shadow-lg shadow-indigo-900/40"
+              className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-8 py-3.5 rounded-xl transition-colors shadow-lg shadow-indigo-900/40"
             >
               {session ? "Open Builder →" : "Start Building Free →"}
             </button>
