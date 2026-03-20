@@ -222,6 +222,25 @@ export function AdminClient({ projectId, projectSlug, projectName, templateKey, 
                     <ExternalLink className="w-3.5 h-3.5 text-gray-400 hover:text-indigo-600" />
                   </a>
                 </div>
+                {config["symbol"] && (
+                  <button
+                    onClick={async () => {
+                      if (typeof window === "undefined" || !window.ethereum) { alert("MetaMask is not installed."); return; }
+                      try {
+                        await window.ethereum.request({
+                          method: "wallet_watchAsset",
+                          params: {
+                            type: templateKey?.includes("nft") ? "ERC721" : "ERC20",
+                            options: { address: deployment.contractAddress, symbol: (config["symbol"] ?? "TOKEN").slice(0, 11), decimals: 18 },
+                          },
+                        });
+                      } catch (err) { console.error("wallet_watchAsset error:", err); }
+                    }}
+                    className="flex items-center gap-2 bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    🦊 Add <strong>{config["symbol"]}</strong> to MetaMask
+                  </button>
+                )}
                 <p className="text-[11px] text-gray-400">{deployment.chainName} · Deployed {timeAgo(deployment.deployedAt)}</p>
               </div>
             )}

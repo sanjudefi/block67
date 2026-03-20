@@ -1493,7 +1493,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                 <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4 space-y-3">
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Deployment Info</p>
                   {deployedAddress && (
-                    <div>
+                    <div className="space-y-2">
                       <p className="text-[10px] text-gray-400 mb-0.5">Contract Address</p>
                       <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
                         <code className="text-xs font-mono text-gray-900 break-all flex-1">{deployedAddress}</code>
@@ -1501,6 +1501,36 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                           <Copy className="w-3.5 h-3.5 text-gray-400 hover:text-gray-700 flex-shrink-0" />
                         </button>
                       </div>
+                      {/* Add to MetaMask */}
+                      {config["symbol"] && (
+                        <button
+                          onClick={async () => {
+                            if (typeof window === "undefined" || !window.ethereum) {
+                              alert("MetaMask is not installed.");
+                              return;
+                            }
+                            try {
+                              await window.ethereum.request({
+                                method: "wallet_watchAsset",
+                                params: {
+                                  type: templateId?.includes("nft") ? "ERC721" : "ERC20",
+                                  options: {
+                                    address: deployedAddress,
+                                    symbol:  (config["symbol"] ?? "TOKEN").slice(0, 11),
+                                    decimals: 18,
+                                  },
+                                },
+                              });
+                            } catch (err) {
+                              console.error("wallet_watchAsset error:", err);
+                            }
+                          }}
+                          className="flex items-center gap-2 w-full bg-orange-50 hover:bg-orange-100 border border-orange-200 hover:border-orange-300 text-orange-700 text-xs font-semibold px-3 py-2 rounded-xl transition-colors"
+                        >
+                          <span className="text-base leading-none">🦊</span>
+                          Add <strong>{config["symbol"]}</strong> to MetaMask
+                        </button>
+                      )}
                     </div>
                   )}
                   {deployTxHash && (
@@ -2377,6 +2407,27 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                             <Copy className="w-3.5 h-3.5 text-gray-400 hover:text-gray-700" />
                           </button>
                         </div>
+                        {/* Add to MetaMask */}
+                        {config["symbol"] && (
+                          <button
+                            onClick={async () => {
+                              if (typeof window === "undefined" || !window.ethereum) { alert("MetaMask is not installed."); return; }
+                              try {
+                                await window.ethereum.request({
+                                  method: "wallet_watchAsset",
+                                  params: {
+                                    type: templateId?.includes("nft") ? "ERC721" : "ERC20",
+                                    options: { address: deployedAddress, symbol: (config["symbol"] ?? "TOKEN").slice(0, 11), decimals: 18 },
+                                  },
+                                });
+                              } catch (err) { console.error("wallet_watchAsset error:", err); }
+                            }}
+                            className="mt-2 flex items-center gap-2 w-full bg-orange-50 hover:bg-orange-100 border border-orange-200 hover:border-orange-300 text-orange-700 text-xs font-semibold px-3 py-2 rounded-xl transition-colors"
+                          >
+                            <span className="text-base leading-none">🦊</span>
+                            Add <strong>{config["symbol"]}</strong> to MetaMask
+                          </button>
+                        )}
                       </div>
                       {deployTxHash && (
                         <div>
