@@ -280,7 +280,7 @@ export default function UseCasesPage() {
         </div>
 
         {/* ── Custom Web3 Solutions ──────────────────────────────────────── */}
-        <div className="mt-20">
+        <div className="mt-20 max-w-4xl mx-auto">
           <div className="mb-8">
             <p className="text-indigo-400 text-xs font-semibold tracking-widest uppercase mb-2">Enterprise</p>
             <h2 className="text-2xl font-bold text-white mb-2">Custom Web3 Solutions</h2>

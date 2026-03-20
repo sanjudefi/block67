@@ -11,6 +11,7 @@ interface UserData {
   email?:         string | null;
   walletAddress?: string | null;
   role?:          string;
+  emailVerified?: boolean | null;
 }
 
 interface PlanStatus {
@@ -47,6 +48,20 @@ export function SettingsClient({ user: initial }: { user: UserData }) {
   const [walletMsg,     setWalletMsg]     = useState("");
 
   const isWalletOnly = !initial.email && !!initial.walletAddress;
+
+  // Email verification resend
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifySent,    setVerifySent]    = useState(false);
+  const [verifyErr,     setVerifyErr]     = useState("");
+
+  async function resendVerification() {
+    setVerifyErr(""); setVerifyLoading(true);
+    const res = await fetch("/api/auth/resend-verification", { method: "POST" });
+    const d   = await res.json();
+    setVerifyLoading(false);
+    if (res.ok) { setVerifySent(true); setTimeout(() => setVerifySent(false), 10000); }
+    else setVerifyErr(d.error ?? "Failed to send.");
+  }
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -180,6 +195,63 @@ export function SettingsClient({ user: initial }: { user: UserData }) {
             </div>
           </form>
         </section>
+
+        {/* Email verification */}
+        {initial.email && (
+          <section className="bg-white border border-gray-200 rounded-2xl p-6 mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-indigo-500" />
+                <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Email Verification</h2>
+              </div>
+              {initial.emailVerified ? (
+                <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-100 px-2.5 py-1 rounded-full font-semibold">
+                  <Check className="w-3 h-3" /> Verified
+                </span>
+              ) : (
+                <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full font-semibold">
+                  ⚠ Unverified
+                </span>
+              )}
+            </div>
+
+            {initial.emailVerified ? (
+              <p className="text-sm text-gray-500">
+                Your email <span className="font-medium text-gray-700">{initial.email}</span> is verified. You can deploy contracts.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600">
+                  Your email <span className="font-medium text-gray-800">{initial.email}</span> is not verified yet.
+                  <br />
+                  <span className="text-xs text-gray-400">Contract deployment is blocked until you verify.</span>
+                </p>
+                <p className="text-xs text-gray-400">
+                  Check your inbox for a verification link from <span className="font-mono text-indigo-500">no-reply@block67.app</span>.
+                  If you didn&apos;t receive it, click below.
+                </p>
+                {verifyErr && (
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{verifyErr}</p>
+                )}
+                {verifySent ? (
+                  <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-100 rounded-xl px-3 py-2.5">
+                    <Check className="w-4 h-4 shrink-0" />
+                    Verification email sent! Check your inbox (and spam folder).
+                  </div>
+                ) : (
+                  <button
+                    onClick={resendVerification}
+                    disabled={verifyLoading}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    {verifyLoading ? "Sending…" : "Resend verification email"}
+                  </button>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* MetaMask wallet */}
         <section className="bg-white border border-gray-200 rounded-2xl p-6 mb-4">

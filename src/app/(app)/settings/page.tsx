@@ -20,7 +20,7 @@ export default async function SettingsPage() {
   const user = userId
     ? await db.user.findUnique({
         where:  { id: userId },
-        select: { id: true, name: true, email: true, walletAddress: true, role: true },
+        select: { id: true, name: true, email: true, walletAddress: true, role: true, emailVerified: true },
       })
     : null;
 

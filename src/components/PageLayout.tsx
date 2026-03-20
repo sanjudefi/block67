@@ -16,6 +16,37 @@ interface UserProps {
   emailVerified?: boolean | null;
 }
 
+function VerifyBanner() {
+  const [sent,    setSent]    = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function resend() {
+    setLoading(true);
+    await fetch("/api/auth/resend-verification", { method: "POST" });
+    setLoading(false);
+    setSent(true);
+    setTimeout(() => setSent(false), 8000);
+  }
+
+  return (
+    <div className="fixed top-12 left-0 right-0 z-20 bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-center gap-3 text-xs text-amber-300">
+      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+      <span>Verify your email to enable contract deployment.</span>
+      {sent ? (
+        <span className="text-green-400 font-semibold">✓ Sent! Check your inbox.</span>
+      ) : (
+        <button
+          onClick={resend}
+          disabled={loading}
+          className="underline underline-offset-2 hover:text-amber-100 transition-colors disabled:opacity-50 font-semibold"
+        >
+          {loading ? "Sending…" : "Resend verification email"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function PageLayout({ user, children }: { user: UserProps; children: React.ReactNode }) {
   const pathname  = usePathname();
   const router    = useRouter();
@@ -255,10 +286,7 @@ export function PageLayout({ user, children }: { user: UserProps; children: Reac
 
       {/* ── Email verification banner ────────────────────────────────────── */}
       {user.email && user.emailVerified === false && (
-        <div className="fixed top-12 left-0 right-0 z-20 bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-center gap-3 text-xs text-amber-300">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-          <span>Please verify your email to enable contract deployment. Check your inbox for a link from no-reply@block67.app</span>
-        </div>
+        <VerifyBanner />
       )}
 
       {/* ── Page content (below fixed nav) ──────────────────────────────── */}
