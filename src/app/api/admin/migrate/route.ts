@@ -1,6 +1,5 @@
-// POST /api/admin/migrate — run schema migrations (admin only)
-// Creates new tables: block67_feedback, block67_leads
-// Adds new columns: block67_users.emailVerified, emailVerificationToken, emailVerificationTokenExp
+// POST /api/admin/migrate — run schema migrations
+// Auth: either ADMIN session OR { secret: NEXTAUTH_SECRET } in body
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -9,25 +8,32 @@ import { authOptions } from "@/lib/auth/config";
 import { db } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
+  // Accept either a valid admin session OR the NEXTAUTH_SECRET passed as "secret"
+  const body = await req.json().catch(() => ({}));
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN") {
+  const isAdminSession = session?.user?.role === "ADMIN";
+  const isSecretAuth =
+    body?.secret &&
+    process.env.NEXTAUTH_SECRET &&
+    body.secret === process.env.NEXTAUTH_SECRET;
+
+  if (!isAdminSession && !isSecretAuth) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const results: string[] = [];
-  const errors: string[] = [];
+  type StepResult = { step: string; ok: boolean; error?: string };
+  const results: StepResult[] = [];
 
-  async function trySQL(label: string, sql: string) {
+  async function trySQL(step: string, sql: string) {
     try {
       await db.$executeRawUnsafe(sql);
-      results.push(`✓ ${label}`);
+      results.push({ step, ok: true });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      // "already exists" errors are fine — means migration already applied
       if (msg.includes("already exists") || msg.includes("duplicate column")) {
-        results.push(`⚠ ${label} (already exists — skipped)`);
+        results.push({ step: `${step} (already exists — skipped)`, ok: true });
       } else {
-        errors.push(`✗ ${label}: ${msg}`);
+        results.push({ step, ok: false, error: msg });
       }
     }
   }
@@ -75,12 +81,12 @@ export async function POST(req: NextRequest) {
     )`
   );
 
+  const failed = results.filter(r => !r.ok);
   return NextResponse.json({
-    ok: errors.length === 0,
+    ok:      failed.length === 0,
     results,
-    errors,
-    message: errors.length === 0
+    message: failed.length === 0
       ? "All migrations applied successfully!"
-      : `${results.length} succeeded, ${errors.length} failed`,
+      : `${results.filter(r => r.ok).length} succeeded, ${failed.length} failed`,
   });
 }
