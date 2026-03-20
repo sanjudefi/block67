@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useCallback } from "react";
 import {
   Search, RefreshCw, ExternalLink, Users, Zap, Globe,
-  ChevronDown, ChevronRight, Wallet, Mail,
+  ChevronDown, ChevronRight, Wallet, Mail, Database,
 } from "lucide-react";
 
 interface RecentProject {
@@ -173,6 +173,18 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [search,  setSearch]  = useState("");
   const [error,   setError]   = useState("");
+  const [migrating, setMigrating] = useState(false);
+  const [migrateResult, setMigrateResult] = useState<{ ok: boolean; message: string; results: string[] } | null>(null);
+
+  async function runMigration() {
+    setMigrating(true); setMigrateResult(null);
+    try {
+      const res  = await fetch("/api/admin/migrate", { method: "POST" });
+      const data = await res.json();
+      setMigrateResult(data);
+    } catch { setMigrateResult({ ok: false, message: "Network error", results: [] }); }
+    setMigrating(false);
+  }
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -215,14 +227,26 @@ export default function AdminUsersPage() {
           <h1 className="text-xl font-bold text-white">Users</h1>
           <p className="text-sm text-gray-500 mt-0.5">All registered accounts and their activity</p>
         </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-xl transition-colors border border-gray-700"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
-        </button>
+        <div className="flex gap-2">
+          <button onClick={runMigration} disabled={migrating}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-emerald-400 hover:text-white bg-emerald-900/30 hover:bg-emerald-800/50 rounded-xl transition-colors border border-emerald-800/60">
+            <Database className={`w-3.5 h-3.5 ${migrating ? "animate-pulse" : ""}`} />
+            {migrating ? "Migrating…" : "Run DB Migration"}
+          </button>
+          <button onClick={load} disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-xl transition-colors border border-gray-700">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+          </button>
+        </div>
       </div>
+
+      {/* Migration result */}
+      {migrateResult && (
+        <div className={`rounded-xl px-4 py-3 text-sm border ${migrateResult.ok ? "bg-emerald-900/30 border-emerald-700/50 text-emerald-300" : "bg-red-900/30 border-red-700/50 text-red-300"}`}>
+          <p className="font-semibold mb-1">{migrateResult.message}</p>
+          <div className="text-xs space-y-0.5 opacity-80">{migrateResult.results.map((r, i) => <p key={i}>{r}</p>)}</div>
+        </div>
+      )}
 
       {/* Stats bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
