@@ -45,6 +45,23 @@ Template description: ${template.description}
 Available configuration fields:
 ${paramSchema}
 
+SPECIAL FIELD — _modules:
+This comma-separated field controls which smart contract features are enabled.
+Current value: "${config._modules ?? ""}"
+
+For erc20-token and meme-token templates, recognized module IDs are:
+  mintable   — owner can mint new tokens
+  burnable   — holders can burn tokens
+  taxable    — transfer tax (buy/sell fee goes to treasury)
+  pausable   — owner can pause/unpause all transfers
+  blacklist  — owner can blacklist addresses from transferring
+  antiwhale  — max transaction amount limit (default 2% of supply)
+  governance — on-chain voting via ERC20Votes + ERC20Permit
+
+When the user asks for any of these features, add the module ID to _modules (comma-separated).
+When the user asks to remove a feature, remove its module ID from _modules.
+Always preserve existing modules unless the user explicitly removes one.
+
 IMPORTANT RULES:
 1. Return ONLY a valid JSON object — no markdown, no explanation outside JSON
 2. The JSON must have exactly two keys: "config" and "message"
@@ -54,7 +71,8 @@ IMPORTANT RULES:
 6. For boolean fields use "true" or "false" as strings
 7. For color fields use hex format like "#ff6b35"
 8. Only update fields relevant to the user's request
-9. Keep values sensible for a blockchain application`;
+9. Keep values sensible for a blockchain application
+10. When updating _modules, always include the complete new comma-separated list`;
 
   const userMessage = `User prompt: "${prompt}"
 
@@ -87,14 +105,49 @@ Update the config based on the user's request. Return JSON only.`;
       }
     }
 
+    // Post-process: if AI didn't set _modules but config has boolean flags, auto-derive
+    const updatedConfig = parsed.config ?? {};
+    if (!updatedConfig._modules) {
+      const moduleUpdates = deriveModuleUpdates(prompt, config._modules ?? "");
+      if (moduleUpdates) updatedConfig._modules = moduleUpdates;
+    }
+
     return NextResponse.json({
-      config: parsed.config ?? {},
+      config: updatedConfig,
       message: parsed.message ?? "Config updated.",
     });
   } catch (err) {
     console.error("AI generate error:", err);
     return NextResponse.json({ error: "AI generation failed" }, { status: 500 });
   }
+}
+
+/**
+ * Keyword-based module detection fallback.
+ * Returns updated _modules string or null if no changes detected.
+ */
+function deriveModuleUpdates(prompt: string, currentModules: string): string | null {
+  const p = prompt.toLowerCase();
+  const mods = new Set(currentModules.split(",").map((s) => s.trim()).filter(Boolean));
+  const before = mods.size;
+
+  // Add modules
+  if (/\bpaus(e|able|ing)\b/.test(p))                                         mods.add("pausable");
+  if (/\bblacklist\b|\bblock\s+wallet\b|\bblocklist\b/.test(p))               mods.add("blacklist");
+  if (/\banti[- ]?whale\b|\bwhale\s+limit\b|\bmax\s+tx\b/.test(p))           mods.add("antiwhale");
+  if (/\bmint(able|ing)?\b/.test(p))                                           mods.add("mintable");
+  if (/\bburn(able)?\b/.test(p))                                               mods.add("burnable");
+  if (/\btax\b|\bbuy.*sell.*%\b|\btransfer\s+fee\b/.test(p))                  mods.add("taxable");
+  if (/\bgovernance\b|\bvot(e|ing)\b|\bproposal\b/.test(p))                   mods.add("governance");
+
+  // Remove modules
+  if (/\bno\s+tax\b|\bremove\s+tax\b|\bdisable\s+tax\b/.test(p))             mods.delete("taxable");
+  if (/\bno\s+pause\b|\bremove\s+pause\b|\bunpausable\b/.test(p))             mods.delete("pausable");
+  if (/\bno\s+blacklist\b|\bremove\s+blacklist\b/.test(p))                    mods.delete("blacklist");
+  if (/\bno\s+whale\b|\bno\s+anti[- ]?whale\b/.test(p))                      mods.delete("antiwhale");
+
+  if (mods.size === before && [...mods].join(",") === currentModules) return null;
+  return [...mods].join(",");
 }
 
 // ── Demo mode (no API key) ────────────────────────────────────────────────────
@@ -193,6 +246,7 @@ async function handleDemoMode(req: NextRequest) {
   }
   if (p.includes("anti-whale") || p.includes("antiwhale") || p.includes("whale")) {
     moduleSuggestions.push({ contractId: "meme_token", moduleId: "whale", contractName: "MemeToken", moduleName: "Anti-Whale", description: "Max wallet percentage limit" });
+    updates.antiwhale = "true";
   }
   if (p.includes("multisig") || p.includes("multi-sig") || p.includes("multi sig")) {
     moduleSuggestions.push({ contractId: "treasury", moduleId: "multisig", contractName: "Treasury", moduleName: "Multi-Sig", description: "Require multiple signers" });
@@ -213,8 +267,12 @@ async function handleDemoMode(req: NextRequest) {
     moduleSuggestions.push({ contractId: "reward_vault", moduleId: "nft_boost", contractName: "RewardVault", moduleName: "NFT Boost", description: "NFT holders earn bonus APY" });
   }
 
+  // Auto-derive _modules for demo mode
+  const moduleUpdate = deriveModuleUpdates(p, (config as Record<string, string>)._modules ?? "");
+  if (moduleUpdate !== null) updates._modules = moduleUpdate;
+
   const message = Object.keys(updates).length > 0 || moduleSuggestions.length > 0
-    ? `Updated ${[...Object.keys(updates), ...moduleSuggestions.map((s) => s.moduleName)].join(", ")} based on your request.`
+    ? `Updated ${[...Object.keys(updates).filter((k) => k !== "_modules"), ...moduleSuggestions.map((s) => s.moduleName)].join(", ") || "modules"} based on your request.`
     : "I understood your request! To enable full AI generation, add your ANTHROPIC_API_KEY to the environment. For now, try specific keywords like colors (purple, orange), numbers, or put names in quotes.";
 
   return NextResponse.json({ config: updates, message, moduleSuggestions });
