@@ -109,31 +109,31 @@ export default function DashboardPage() {
     <PageLayout user={session?.user ?? {}}>
 
       {/* ════════════════════════════════════════════════════════════════════
-          MY PROJECTS — top, highlighted white section
+          MY PROJECTS — top section (dark themed)
       ════════════════════════════════════════════════════════════════════ */}
-      <div className="bg-white border-b border-gray-100 px-4 pt-10 pb-12">
+      <div className="bg-[#0f1117] border-b border-white/10 px-4 pt-10 pb-12">
         <div className="max-w-4xl mx-auto">
 
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
             <div>
-              <p className="text-indigo-500 text-xs font-semibold tracking-widest uppercase mb-1">Welcome back, {firstName} 👋</p>
-              <h1 className="text-2xl font-bold text-gray-900">My Projects</h1>
+              <p className="text-indigo-400 text-xs font-semibold tracking-widest uppercase mb-1">Welcome back, {firstName} 👋</p>
+              <h1 className="text-2xl font-bold text-white">My Projects</h1>
               {!loadingProjects && (
                 <p className="text-sm text-gray-400 mt-0.5">
-                  <span className={projects.length >= planLimit ? "text-red-500 font-semibold" : "font-semibold text-gray-600"}>
+                  <span className={projects.length >= planLimit ? "text-red-400 font-semibold" : "font-semibold text-gray-300"}>
                     {projects.length}
                   </span>
-                  <span className="text-gray-400"> / {planLimit} projects used</span>
+                  <span className="text-gray-500"> / {planLimit} projects used</span>
                   {isPro
-                    ? <span className="ml-2 text-[10px] bg-indigo-100 text-indigo-600 font-bold px-1.5 py-0.5 rounded-full">PRO</span>
-                    : <button onClick={() => setShowUpgrade(true)} className="ml-2 text-[10px] bg-gray-100 hover:bg-indigo-100 text-gray-500 hover:text-indigo-600 font-bold px-1.5 py-0.5 rounded-full transition-colors">FREE ↑ Upgrade</button>
+                    ? <span className="ml-2 text-[10px] bg-indigo-500/20 text-indigo-400 font-bold px-1.5 py-0.5 rounded-full border border-indigo-500/30">PRO</span>
+                    : <button onClick={() => setShowUpgrade(true)} className="ml-2 text-[10px] bg-white/5 hover:bg-indigo-500/20 text-gray-500 hover:text-indigo-400 font-bold px-1.5 py-0.5 rounded-full border border-white/10 transition-colors">FREE ↑ Upgrade</button>
                   }
                 </p>
               )}
             </div>
             <button onClick={handleNewProject}
-              className="self-start sm:self-auto flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-colors shadow-md shadow-indigo-200">
+              className="self-start sm:self-auto flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-colors shadow-md shadow-indigo-900/40">
               <Plus className="w-4 h-4" /> New Project
             </button>
           </div>
@@ -141,17 +141,17 @@ export default function DashboardPage() {
           {/* Projects grid */}
           {loadingProjects ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[1,2,3,4].map(i => <div key={i} className="h-36 bg-gray-100 rounded-2xl animate-pulse" />)}
+              {[1,2,3,4].map(i => <div key={i} className="h-36 bg-white/5 rounded-2xl animate-pulse" />)}
             </div>
           ) : projects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-14 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100">
+            <div className="flex flex-col items-center justify-center py-14 bg-indigo-600/10 rounded-2xl border border-indigo-500/20">
               <div className="text-5xl mb-3">🚀</div>
-              <h2 className="text-lg font-bold text-gray-800 mb-1">No projects yet</h2>
-              <p className="text-gray-500 text-sm mb-6 text-center max-w-xs">
+              <h2 className="text-lg font-bold text-white mb-1">No projects yet</h2>
+              <p className="text-gray-400 text-sm mb-6 text-center max-w-xs">
                 Pick a use case below and launch your first Web3 project in minutes.
               </p>
               <button onClick={handleNewProject}
-                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-colors shadow-md">
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-colors shadow-md shadow-indigo-900/40">
                 <Plus className="w-4 h-4" /> New Project
               </button>
             </div>
@@ -164,7 +164,7 @@ export default function DashboardPage() {
                 const isDeployed = isLive && !!project.deployments?.[0]?.contractAddress;
                 return (
                   <div key={project.id}
-                    className="group relative bg-white rounded-2xl border border-gray-100 hover:border-indigo-200 hover:shadow-lg transition-all p-5 ring-1 ring-transparent hover:ring-indigo-100">
+                    className="group relative bg-white/[0.04] rounded-2xl border border-white/10 hover:border-white/20 hover:bg-white/[0.07] transition-all p-5">
                     {/* Header */}
                     <div className="flex items-start gap-4 mb-4">
                       <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${tmpl?.gradient ?? "from-gray-200 to-gray-300"} flex items-center justify-center text-2xl flex-shrink-0 shadow-sm`}>
@@ -172,48 +172,48 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <h3 className="text-gray-900 font-bold text-base truncate">{project.name}</h3>
+                          <h3 className="text-white font-bold text-base truncate">{project.name}</h3>
                           {isDeployed
-                            ? <span className="text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-200 px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 flex items-center gap-0.5">
+                            ? <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 flex items-center gap-0.5">
                                 <Rocket className="w-2.5 h-2.5" /> Deployed
                               </span>
                             : isLive
-                            ? <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 flex items-center gap-0.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
+                            ? <span className="text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 flex items-center gap-0.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live
                               </span>
-                            : <span className="text-[10px] bg-gray-50 text-gray-400 border border-gray-200 px-1.5 py-0.5 rounded-full flex-shrink-0">Draft</span>
+                            : <span className="text-[10px] bg-white/5 text-gray-500 border border-white/10 px-1.5 py-0.5 rounded-full flex-shrink-0">Draft</span>
                           }
                         </div>
                         <p className="text-xs text-gray-500 truncate">{tmpl?.name ?? "Custom"} · Use Case</p>
-                        <p className="text-xs text-gray-300 mt-0.5 flex items-center gap-1">
+                        <p className="text-xs text-gray-600 mt-0.5 flex items-center gap-1">
                           <Clock className="w-3 h-3" /> {timeAgo(project.updatedAt)}
                         </p>
                       </div>
                       {/* 3-dot menu */}
                       <div className="relative" onClick={e => e.stopPropagation()}>
                         <button onClick={() => setOpenMenu(openMenu === project.id ? null : project.id)}
-                          className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
+                          className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                         {openMenu === project.id && (
-                          <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-lg z-10 w-48 py-1">
+                          <div className="absolute right-0 top-8 bg-[#1a1d27] border border-white/10 rounded-xl shadow-2xl z-10 w-48 py-1">
                             {isLive && (
                               <a href={`https://${project.slug}.block67.app`} target="_blank" rel="noopener noreferrer"
-                                className="flex items-center gap-2 px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 w-full"
+                                className="flex items-center gap-2 px-3 py-2 text-sm text-emerald-400 hover:bg-emerald-500/10 w-full"
                                 onClick={() => setOpenMenu(null)}>
                                 <ExternalLink className="w-3.5 h-3.5" /> Visit Live Site
                               </a>
                             )}
                             <button onClick={() => { setOpenMenu(null); router.push(`/projects/${project.slug}`); }}
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full">
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 w-full">
                               <Zap className="w-3.5 h-3.5" /> Open Builder
                             </button>
                             <button onClick={() => { setOpenMenu(null); setDomainProject({ id: project.id, name: project.name, slug: project.slug }); }}
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 w-full">
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-emerald-400 hover:bg-emerald-500/10 w-full">
                               <Globe className="w-3.5 h-3.5" /> Connect Domain
                             </button>
                             <button onClick={() => deleteProject(project.id)}
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 w-full">
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 w-full">
                               <Trash2 className="w-3.5 h-3.5" /> Delete
                             </button>
                           </div>
@@ -224,22 +224,22 @@ export default function DashboardPage() {
                     {/* Action buttons */}
                     <div className="flex gap-2">
                       <button onClick={() => router.push(`/projects/${project.slug}`)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold bg-gray-50 hover:bg-indigo-50 hover:text-indigo-700 border border-gray-200 hover:border-indigo-200 text-gray-600 rounded-xl transition-all">
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold bg-white/5 hover:bg-indigo-600/20 hover:text-indigo-300 border border-white/10 hover:border-indigo-500/30 text-gray-400 rounded-xl transition-all">
                         <Zap className="w-3.5 h-3.5" /> Builder
                       </button>
                       {isLive ? (
                         <>
                           <button onClick={() => router.push(`/projects/${project.slug}/frontend`)}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 rounded-xl transition-all">
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold bg-violet-500/15 hover:bg-violet-500/25 text-violet-400 border border-violet-500/25 rounded-xl transition-all">
                             <Palette className="w-3.5 h-3.5" /> Frontend
                           </button>
                           <button onClick={() => router.push(`/projects/${project.slug}/admin`)}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all">
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-all">
                             <Settings2 className="w-3.5 h-3.5" /> Admin
                           </button>
                         </>
                       ) : (
-                        <div className="flex-1 flex items-center justify-center text-xs text-gray-300 border border-dashed border-gray-200 rounded-xl py-2">
+                        <div className="flex-1 flex items-center justify-center text-xs text-gray-600 border border-dashed border-white/10 rounded-xl py-2">
                           Deploy to unlock
                         </div>
                       )}
@@ -250,7 +250,7 @@ export default function DashboardPage() {
 
               {/* Add new project card */}
               <button onClick={handleNewProject}
-                className="flex flex-col items-center justify-center gap-3 bg-white border-2 border-dashed border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/30 rounded-2xl p-5 text-gray-400 hover:text-indigo-600 transition-all min-h-[152px] w-full">
+                className="flex flex-col items-center justify-center gap-3 bg-white/[0.03] border-2 border-dashed border-white/10 hover:border-indigo-500/40 hover:bg-indigo-600/10 rounded-2xl p-5 text-gray-600 hover:text-indigo-400 transition-all min-h-[152px] w-full">
                 <div className="w-12 h-12 rounded-2xl border-2 border-dashed border-current flex items-center justify-center">
                   <Plus className="w-6 h-6" />
                 </div>
@@ -262,10 +262,10 @@ export default function DashboardPage() {
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════
-          USE CASES — dark section below, same as homepage
+          USE CASES — same dark section below
           Click card → /use-cases/[id]   |   Launch now → /projects/new
       ════════════════════════════════════════════════════════════════════ */}
-      <div className="bg-[#0f1117] px-4 pt-12 pb-20">
+      <div className="bg-[#0f1117] border-t border-white/10 px-4 pt-12 pb-20">
         <div className="max-w-4xl mx-auto">
 
           {/* Section header */}
