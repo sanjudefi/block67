@@ -3,8 +3,108 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { ArrowUp, Shield, Code2, Zap, Download, Globe, Lock, ChevronRight } from "lucide-react";
 import { BUILTIN_TEMPLATES } from "@/lib/templates/index";
+
+// ── Custom Web3 Solutions data ────────────────────────────────────────────────
+const CUSTOM_SOLUTIONS = [
+  {
+    id: "DEX",
+    icon: "💱",
+    title: "Decentralized Exchange",
+    short: "DEX",
+    like: "Like Uniswap",
+    tagline: "Launch your own token swap platform with liquidity pools and real-time charts.",
+    gradient: "from-blue-600 to-cyan-500",
+    color: "blue",
+    features: [
+      "Token swap interface",
+      "Liquidity pool management",
+      "Price charts & analytics",
+      "LP fee earnings",
+      "Slippage control",
+      "Multi-token support",
+    ],
+    includes: ["Smart contracts (AMM)", "Swap frontend UI", "Liquidity dashboard", "Admin panel"],
+  },
+  {
+    id: "NFT_MARKETPLACE",
+    icon: "🖼️",
+    title: "NFT Marketplace",
+    short: "NFT Market",
+    like: "Like OpenSea",
+    tagline: "Build your own NFT trading platform with minting, listing, and creator royalties.",
+    gradient: "from-pink-600 to-rose-500",
+    color: "pink",
+    features: [
+      "NFT minting & listing",
+      "Buy / sell / auction",
+      "Creator royalties (ERC-2981)",
+      "User dashboards",
+      "Collection pages",
+      "Wallet connect",
+    ],
+    includes: ["NFT contracts (ERC-721/1155)", "Marketplace UI", "Creator portal", "Admin panel"],
+  },
+  {
+    id: "DEFI_LENDING",
+    icon: "🏦",
+    title: "Lending & Borrowing",
+    short: "DeFi Lending",
+    like: "Like Aave",
+    tagline: "Create a DeFi lending platform where users supply assets and earn interest.",
+    gradient: "from-emerald-600 to-teal-500",
+    color: "emerald",
+    features: [
+      "Supply & borrow assets",
+      "Dynamic interest rates",
+      "Collateral system",
+      "Liquidation engine",
+      "Risk parameters",
+      "Yield dashboard",
+    ],
+    includes: ["Lending protocol contracts", "Supply/borrow UI", "Risk dashboard", "Admin panel"],
+  },
+  {
+    id: "GAME_ECONOMY",
+    icon: "🎮",
+    title: "Web3 Game Economy",
+    short: "Game Economy",
+    like: "Play-to-earn",
+    tagline: "Build a blockchain game economy with in-game tokens, NFT assets, and rewards.",
+    gradient: "from-purple-600 to-violet-500",
+    color: "purple",
+    features: [
+      "In-game currency (ERC-20)",
+      "NFT game assets",
+      "Player rewards system",
+      "Staking & crafting",
+      "Marketplace for items",
+      "Anti-cheat mechanisms",
+    ],
+    includes: ["Game token + NFT contracts", "Player UI", "Rewards engine", "Admin panel"],
+  },
+  {
+    id: "RWA",
+    icon: "🏢",
+    title: "Real World Asset Tokenization",
+    short: "RWA",
+    like: "Tokenized assets",
+    tagline: "Tokenize real estate, funds, or any real-world asset with fractional ownership.",
+    gradient: "from-amber-600 to-orange-500",
+    color: "amber",
+    features: [
+      "Fractional ownership tokens",
+      "Compliance-ready structure",
+      "Investor dashboard",
+      "On-chain KYC hooks",
+      "Dividend distribution",
+      "Transfer restrictions",
+    ],
+    includes: ["RWA token contracts", "Investor portal", "Compliance module", "Admin panel"],
+  },
+];
 
 // ── Category filter labels ─────────────────────────────────────────────────────
 const CATEGORY_LABELS: Record<string, string> = {
@@ -92,6 +192,7 @@ export default function HomePage() {
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [visible, setVisible]               = useState(true);
   const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [activeTab, setActiveTab]           = useState(0);
 
   // Rotate placeholder text
   useEffect(() => {
@@ -324,6 +425,136 @@ export default function HomePage() {
               {session ? "Your projects are waiting" : "Free to start · No credit card required"}
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          CUSTOM WEB3 SOLUTIONS — tabbed showcase
+      ════════════════════════════════════════════════════════════════════ */}
+      <section className="bg-[#080b12] px-4 py-20">
+        <div className="max-w-5xl mx-auto">
+
+          {/* Header */}
+          <div className="text-center mb-12">
+            <p className="text-indigo-400 text-xs font-semibold tracking-widest uppercase mb-3">Custom Web3 Solutions</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              Need something bigger?
+            </h2>
+            <p className="text-gray-400 text-sm max-w-xl mx-auto leading-relaxed">
+              DEX, NFT Marketplace, DeFi, Game Economy, RWA — complex platforms built end-to-end.
+              Smart contracts + frontend + backend + launch strategy.
+            </p>
+          </div>
+
+          {/* Tab buttons */}
+          <div className="flex flex-wrap justify-center gap-2 mb-8">
+            {CUSTOM_SOLUTIONS.map((s, i) => (
+              <button
+                key={s.id}
+                onClick={() => setActiveTab(i)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                  activeTab === i
+                    ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-900/40 scale-105"
+                    : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <span className="text-base leading-none">{s.icon}</span>
+                {s.short}
+              </button>
+            ))}
+          </div>
+
+          {/* Active tab panel */}
+          {(() => {
+            const sol = CUSTOM_SOLUTIONS[activeTab];
+            return (
+              <div className="rounded-2xl overflow-hidden border border-white/10 bg-white/[0.03]">
+                {/* Top gradient banner */}
+                <div className={`bg-gradient-to-br ${sol.gradient} px-8 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4`}>
+                  <div className="flex items-center gap-5">
+                    <span className="text-6xl drop-shadow-xl">{sol.icon}</span>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-2xl font-bold text-white">{sol.title}</h3>
+                        <span className="text-[10px] bg-black/25 text-white/80 px-2 py-0.5 rounded-full font-medium">{sol.like}</span>
+                      </div>
+                      <p className="text-white/75 text-sm max-w-md">{sol.tagline}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Link
+                      href="/contact"
+                      className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all backdrop-blur-sm"
+                    >
+                      🔧 Custom Build
+                    </Link>
+                    <Link
+                      href="/contact"
+                      className="flex items-center gap-1.5 bg-white text-gray-900 hover:bg-gray-100 text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-lg"
+                    >
+                      💬 Contact Us
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Body: features + includes */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-white/10">
+                  {/* Features */}
+                  <div className="p-7">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">What it includes</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {sol.features.map(f => (
+                        <div key={f} className="flex items-center gap-2.5 text-sm text-gray-300">
+                          <span className="w-5 h-5 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                            <span className="text-indigo-400 text-[10px] font-bold">✓</span>
+                          </span>
+                          {f}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* What we deliver */}
+                  <div className="p-7">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">What we deliver</p>
+                    <div className="space-y-3 mb-7">
+                      {sol.includes.map((item, i) => (
+                        <div key={item} className="flex items-center gap-3">
+                          <div className="w-6 h-6 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-xs font-bold text-gray-500">
+                            {i + 1}
+                          </div>
+                          <span className="text-sm text-gray-300">{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="border-t border-white/10 pt-5 space-y-2">
+                      <Link
+                        href="/contact"
+                        className="flex items-center justify-center gap-2 w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold py-3 rounded-xl transition-colors shadow-lg shadow-indigo-900/30"
+                      >
+                        🚀 Start this project
+                      </Link>
+                      <p className="text-center text-xs text-gray-600">We&apos;ll get back to you within 24 hours</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Pagination dots */}
+          <div className="flex justify-center gap-2 mt-6">
+            {CUSTOM_SOLUTIONS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveTab(i)}
+                className={`h-1.5 rounded-full transition-all ${
+                  activeTab === i ? "w-6 bg-indigo-500" : "w-1.5 bg-white/20 hover:bg-white/40"
+                }`}
+              />
+            ))}
+          </div>
+
         </div>
       </section>
 
