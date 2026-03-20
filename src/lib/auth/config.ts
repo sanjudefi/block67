@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { verifyMessage } from "viem";
 import { db } from "@/lib/db";
+import { notifyAdminNewUser } from "@/lib/email";
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt", maxAge: 365 * 24 * 60 * 60, updateAge: 24 * 60 * 60 }, // 1 year, refresh daily
@@ -65,9 +66,11 @@ export const authOptions: NextAuthOptions = {
                 name: `${address.slice(0, 6)}...${address.slice(-4)}`,
               },
             });
+            // Notify admin of new wallet signup (fire-and-forget)
+            notifyAdminNewUser(null, lowerAddress, user.name).catch(console.error);
           }
 
-          return { id: user.id, name: user.name, email: user.email, role: user.role };
+          return { id: user.id, name: user.name, email: user.email, role: user.role, emailVerified: user.emailVerified };
         }
 
         // ── Admin shortcut (env-var password, no DB needed) ─────────────────
@@ -90,7 +93,7 @@ export const authOptions: NextAuthOptions = {
           const valid = await bcrypt.compare(password, user.password);
           if (!valid) return null;
 
-          return { id: user.id, name: user.name, email: user.email, role: user.role };
+          return { id: user.id, name: user.name, email: user.email, role: user.role, emailVerified: user.emailVerified };
         }
 
         return null;
@@ -99,16 +102,23 @@ export const authOptions: NextAuthOptions = {
   ],
 
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
-        token.id   = user.id;
-        token.role = (user as unknown as { role: string }).role;
+        token.id            = user.id;
+        token.role          = (user as unknown as { role: string }).role;
+        token.emailVerified = (user as unknown as { emailVerified: boolean }).emailVerified ?? false;
+      }
+      // Re-fetch emailVerified on session update (after verification)
+      if (trigger === "update" && token.id) {
+        const dbUser = await db.user.findUnique({ where: { id: token.id as string }, select: { emailVerified: true } });
+        if (dbUser) token.emailVerified = dbUser.emailVerified;
       }
       return token;
     },
     async session({ session, token }) {
-      session.user.id   = token.id;
-      session.user.role = token.role;
+      session.user.id            = token.id;
+      session.user.role          = token.role;
+      session.user.emailVerified = token.emailVerified as boolean | undefined;
       return session;
     },
   },

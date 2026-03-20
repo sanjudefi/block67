@@ -5,13 +5,15 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { Zap, Menu, X, Settings, LogOut, User, Plus } from "lucide-react";
+import { Zap, Menu, X, Settings, LogOut, User, Plus, AlertTriangle } from "lucide-react";
+import { Footer } from "./Footer";
 
 interface UserProps {
   name?: string | null;
   email?: string | null;
   walletAddress?: string | null;
   role?: string;
+  emailVerified?: boolean | null;
 }
 
 export function PageLayout({ user, children }: { user: UserProps; children: React.ReactNode }) {
@@ -251,8 +253,19 @@ export function PageLayout({ user, children }: { user: UserProps; children: Reac
         </div>
       )}
 
+      {/* ── Email verification banner ────────────────────────────────────── */}
+      {user.email && user.emailVerified === false && (
+        <div className="fixed top-12 left-0 right-0 z-20 bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-center gap-3 text-xs text-amber-300">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+          <span>Please verify your email to enable contract deployment. Check your inbox for a link from no-reply@block67.app</span>
+        </div>
+      )}
+
       {/* ── Page content (below fixed nav) ──────────────────────────────── */}
-      <main className="pt-12">{children}</main>
+      <main className={`pt-12 ${user.email && user.emailVerified === false ? "pt-[68px]" : ""}`}>
+        {children}
+        <Footer />
+      </main>
     </div>
   );
 }

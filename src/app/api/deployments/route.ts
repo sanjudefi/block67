@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession }         from "next-auth";
 import { authOptions }              from "@/lib/auth/config";
 import { db as prisma }             from "@/lib/db/index";
+import { sendDeploymentSuccessEmail } from "@/lib/email";
 
 // ── Well-known EVM chains ─────────────────────────────────────────────────────
 // If a chain isn't in the DB yet we auto-create it on first deployment so the
@@ -57,9 +58,20 @@ export async function POST(req: NextRequest) {
   // Verify the project belongs to the current user
   const project = await prisma.project.findFirst({
     where: { id: projectId, ownerId: session.user.id },
+    include: { owner: { select: { email: true, name: true, walletAddress: true, emailVerified: true } } },
   });
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  // Block deployment if user signed up with email but hasn't verified it yet
+  // (Wallet-only users are exempt — their wallet IS their verified identity)
+  const owner = project.owner;
+  if (owner.email && !owner.emailVerified) {
+    return NextResponse.json(
+      { error: "Please verify your email address before deploying. Check your inbox for a verification link." },
+      { status: 403 }
+    );
   }
 
   // ── Look up (or auto-create) the Chain record ─────────────────────────────
@@ -110,6 +122,20 @@ export async function POST(req: NextRequest) {
     where: { id: projectId },
     data:  { status: "ACTIVE" },
   });
+
+  // Send deployment success email (fire-and-forget)
+  if (owner.email) {
+    const knownChain = KNOWN_CHAINS[evmChainId];
+    const explorerUrl = knownChain?.explorerUrl ?? "https://etherscan.io";
+    sendDeploymentSuccessEmail(
+      owner.email,
+      owner.name,
+      project.name,
+      contractAddress,
+      chain.name,
+      explorerUrl,
+    ).catch(console.error);
+  }
 
   return NextResponse.json({ deployment }, { status: 201 });
 }

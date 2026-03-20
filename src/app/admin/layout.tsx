@@ -7,8 +7,10 @@ import { redirect } from "next/navigation";
 import Link         from "next/link";
 
 const NAV = [
-  { href: "/admin/users", label: "Users" },
-  { href: "/admin/plans", label: "Plans" },
+  { href: "/admin/users",    label: "Users"    },
+  { href: "/admin/plans",    label: "Plans"    },
+  { href: "/admin/leads",    label: "Leads"    },
+  { href: "/admin/feedback", label: "Feedback" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

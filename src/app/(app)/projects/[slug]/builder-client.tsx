@@ -348,6 +348,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
   const [showDeployChecklist,   setShowDeployChecklist]   = useState(false);
   const [checkPermanent,        setCheckPermanent]        = useState(false);
   const [checkNoEdit,           setCheckNoEdit]           = useState(false);
+  const [checkTerms,            setCheckTerms]            = useState(false);
 
   const isConnected  = !!ethAddress;
   const isDeployed   = !!deployedAddress;  // contract already exists — lock editing
@@ -2780,6 +2781,19 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                   I understand that <strong>Architecture, Configure, and Compile</strong> tabs will be locked after deployment. Only the frontend can be edited.
                 </span>
               </label>
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={checkTerms}
+                  onChange={(e) => setCheckTerms(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-indigo-600 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700 leading-snug group-hover:text-gray-900 transition-colors">
+                  I accept the{" "}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-medium">Terms of Service</a>.
+                  {" "}I am solely responsible for this deployment and all consequences thereof.
+                </span>
+              </label>
             </div>
 
             <div className="flex gap-3">
@@ -2790,7 +2804,7 @@ export default function BuilderClient({ params, initialProject }: { params: { sl
                 Cancel
               </button>
               <button
-                disabled={!checkPermanent || !checkNoEdit}
+                disabled={!checkPermanent || !checkNoEdit || !checkTerms}
                 onClick={() => {
                   if (typeof localStorage !== "undefined") {
                     localStorage.setItem(`deploy_agreed_${project?.id}`, "1");
