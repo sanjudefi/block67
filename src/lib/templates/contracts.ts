@@ -336,6 +336,46 @@ export const CONTRACT_ARCHITECTURES: Record<TemplateId, TemplateArchitecture> = 
       },
     ],
   },
+  "airdrop-campaign": {
+    contracts: [
+      { id: "token", name: "AirdropToken", standard: "ERC-20", color: "#8b5cf6", connects: [], modules: [
+        { id: "airdrop", name: "Airdrop()", description: "Batch airdrop to wallets", defaultEnabled: true, icon: "🪂", immutable: true },
+        { id: "claim",   name: "Claim()",   description: "Self-claim airdrop",       defaultEnabled: true, icon: "🎁", immutable: true },
+      ]},
+    ],
+  },
+  "token-presale": {
+    contracts: [
+      { id: "presale", name: "TokenPresale", standard: "Custom", color: "#f59e0b", connects: [], modules: [
+        { id: "buy",      name: "Buy()",      description: "Purchase tokens with ETH", defaultEnabled: true, icon: "💰", immutable: true },
+        { id: "withdraw", name: "Withdraw()", description: "Owner withdraw raised ETH", defaultEnabled: true, icon: "🏦", immutable: true },
+      ]},
+    ],
+  },
+  "token-faucet": {
+    contracts: [
+      { id: "faucet", name: "TokenFaucet", standard: "Custom", color: "#06b6d4", connects: [], modules: [
+        { id: "drip",    name: "Drip()",    description: "Claim tokens from faucet", defaultEnabled: true, icon: "🚰", immutable: true },
+        { id: "refill",  name: "Refill()",  description: "Owner refill faucet",      defaultEnabled: true, icon: "🪣", immutable: true },
+      ]},
+    ],
+  },
+  "referral-rewards": {
+    contracts: [
+      { id: "referral", name: "ReferralRewards", standard: "Custom", color: "#10b981", connects: [], modules: [
+        { id: "register", name: "Register()", description: "Register referral code",    defaultEnabled: true, icon: "🔗", immutable: true },
+        { id: "claim",    name: "Claim()",    description: "Claim referral earnings",   defaultEnabled: true, icon: "💸", immutable: true },
+      ]},
+    ],
+  },
+  "reward-game": {
+    contracts: [
+      { id: "game", name: "RewardGame", standard: "Custom", color: "#f43f5e", connects: [], modules: [
+        { id: "play",  name: "Play()",  description: "Submit game action",    defaultEnabled: true, icon: "🎮", immutable: true },
+        { id: "claim", name: "Claim()", description: "Claim game rewards",    defaultEnabled: true, icon: "🏆", immutable: true },
+      ]},
+    ],
+  },
 };
 
 export function getArchitecture(id: TemplateId): TemplateArchitecture | undefined {

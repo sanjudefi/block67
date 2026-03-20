@@ -10,7 +10,12 @@ export type TemplateId =
   | "pump-token"
   | "nft-mint"
   | "token-gated"
-  | "click-to-earn";
+  | "click-to-earn"
+  | "airdrop-campaign"
+  | "token-presale"
+  | "token-faucet"
+  | "referral-rewards"
+  | "reward-game";
 
 export interface TemplateParam {
   key: string;

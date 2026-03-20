@@ -946,6 +946,19 @@ export function ClickToEarnPreview({ config }: { config: Config }) {
   );
 }
 
+// ── Generic fallback preview ──────────────────────────────────────────────────
+
+export function GenericPreview({ config }: { config: Config }) {
+  const name = config.tokenName || config.collectionName || config.projectName || "Project";
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
+      <div className="text-4xl">⚙️</div>
+      <div className="text-sm font-medium text-gray-300">{name}</div>
+      <div className="text-xs">Preview not available for this template</div>
+    </div>
+  );
+}
+
 // ── Registry ─────────────────────────────────────────────────────────────────
 
 export const PREVIEW_MAP: Record<TemplateId, React.FC<{ config: Config }>> = {
@@ -958,6 +971,11 @@ export const PREVIEW_MAP: Record<TemplateId, React.FC<{ config: Config }>> = {
   "nft-mint":          NFTMintPreview,
   "token-gated":       TokenGatedPreview,
   "click-to-earn":     ClickToEarnPreview,
+  "airdrop-campaign":  GenericPreview,
+  "token-presale":     GenericPreview,
+  "token-faucet":      GenericPreview,
+  "referral-rewards":  GenericPreview,
+  "reward-game":       GenericPreview,
 };
 
 export function TemplatePreview({ templateId, config }: { templateId: TemplateId; config: Config }) {
