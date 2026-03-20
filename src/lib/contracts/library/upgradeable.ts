@@ -200,6 +200,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpg
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/NoncesUpgradeable.sol";
 
 /**
  * @title ERC20VotesUpgradeable
@@ -224,7 +225,6 @@ contract ERC20VotesUpgradeableToken is
     ) public initializer {
         __ERC20_init(name_, symbol_);
         __ERC20Permit_init(name_);
-        __ERC20Votes_init();
         __Ownable_init(initialOwner);
     }
 
